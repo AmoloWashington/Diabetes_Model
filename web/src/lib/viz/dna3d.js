@@ -9,12 +9,13 @@ const BP_PER_TURN = 10.5;
 const RISE = 0.34;
 const RADIUS = 1.0;
 const GROOVE_OFFSET = (144 / 180) * Math.PI;
-const COLORS = { A: 0x34d399, T: 0xf87171, G: 0xfbbf24, C: 0x60a5fa, N: 0x94a3b8 };
+const COLORS = { A: 0x3e9b74, T: 0xc4553f, G: 0xd29a3c, C: 0x5a7fb0, N: 0x9a9ea9 };
 const PAIR = { A: "T", T: "A", G: "C", C: "G", N: "N" };
 
 export class DNAHelix {
-  constructor(container, { interactive = true, autoRotate = true, maxBp = 120 } = {}) {
+  constructor(container, { interactive = true, autoRotate = true, maxBp = 120, dustColor = 0x7a8a82 } = {}) {
     this.container = container;
+    this.dustColor = dustColor;
     this.maxBp = maxBp;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
@@ -24,8 +25,8 @@ export class DNAHelix {
 
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(5, 8, 10); this.scene.add(key);
-    const rim = new THREE.PointLight(0x22d3ee, 30, 60); rim.position.set(-8, -4, 6); this.scene.add(rim);
-    const rim2 = new THREE.PointLight(0xa78bfa, 30, 60); rim2.position.set(8, 6, -6); this.scene.add(rim2);
+    const rim = new THREE.PointLight(0x9fd8bf, 25, 60); rim.position.set(-8, -4, 6); this.scene.add(rim);
+    const rim2 = new THREE.PointLight(0xf0d3a0, 25, 60); rim2.position.set(8, 6, -6); this.scene.add(rim2);
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -56,7 +57,7 @@ export class DNAHelix {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    this.dust = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x5eead4, size: 0.06, transparent: true, opacity: 0.5 }));
+    this.dust = new THREE.Points(g, new THREE.PointsMaterial({ color: this.dustColor, size: 0.06, transparent: true, opacity: 0.35 }));
     this.scene.add(this.dust);
   }
 
@@ -107,7 +108,7 @@ export class DNAHelix {
       const curve = new THREE.CatmullRomCurve3(pts[k]);
       const tube = new THREE.TubeGeometry(curve, Math.max(8, n * 6), 0.07, 8, false);
       this.group.add(new THREE.Mesh(tube, new THREE.MeshStandardMaterial({
-        color: k ? 0xa78bfa : 0x22d3ee, emissive: k ? 0xa78bfa : 0x22d3ee, emissiveIntensity: 0.35, roughness: 0.3,
+        color: k ? 0xc98f35 : 0x2f7d5b, emissive: k ? 0xc98f35 : 0x2f7d5b, emissiveIntensity: 0.25, roughness: 0.35,
       })));
     }
     this.group.rotation.z = Math.PI / 2.4;
@@ -156,4 +157,11 @@ export class DNAHelix {
   }
 
   get canvas() { return this.renderer.domElement; }
+
+  dispose() {
+    this.renderer.setAnimationLoop(null);
+    this.controls?.dispose();
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+  }
 }

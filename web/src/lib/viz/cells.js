@@ -848,7 +848,9 @@ export class CellTheatre {
     this.last = performance.now();
     this.running = true;
     this._readoutT = 0;
+    this._alive = true;
     const loop = (now) => {
+      if (!this._alive) return;
       const dt = Math.min((now - this.last) / 1000, 0.05);
       this.last = now;
       if (this.running && !document.hidden) {
@@ -861,6 +863,8 @@ export class CellTheatre {
     };
     requestAnimationFrame(loop);
   }
+
+  dispose() { this._alive = false; }
 
   setScene(name) {
     this.scene = this.scenes[name];

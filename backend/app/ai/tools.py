@@ -74,6 +74,56 @@ def _references(_args: dict) -> dict:
     return {"references": services.REFERENCES}
 
 
+def _rna_seq(args: dict) -> str:
+    from ..rna import sequences
+    from ..rna.store import get_store
+
+    if args.get("sequence_id") is not None:
+        row = get_store().get_sequence(int(args["sequence_id"]))
+        if not row:
+            raise ValueError("Sequence not found")
+        return row["sequence"]
+    if not args.get("sequence"):
+        raise ValueError("Provide 'sequence' or 'sequence_id'")
+    seq, _ = sequences.normalize(str(args["sequence"]))
+    return seq
+
+
+def _fold_rna(args: dict) -> dict:
+    from ..rna import folding
+
+    r = folding.fold(_rna_seq(args), float(args.get("temperature_c", 37.0)))
+    r.pop("pair_probabilities", None)  # large; the summary statistics are enough for interpretation
+    return r
+
+
+def _predict_rna(args: dict) -> dict:
+    from ..rna.api import predict_structure
+
+    method = args.get("method", "auto")
+    if method not in ("auto", "template", "denovo"):
+        raise ValueError("method must be auto, template or denovo")
+    r = predict_structure(_rna_seq(args), method)
+    conf = r.pop("confidence")
+    r.pop("coords")
+    r["per_residue_confidence_rounded"] = [round(c, 2) for c in conf]
+    return r
+
+
+def _list_rna(args: dict) -> dict:
+    from ..rna.store import get_store
+
+    items, total = get_store().list_sequences(str(args.get("query", ""))[:100], 50, 0)
+    return {"total": total, "items": [{k: it[k] for k in ("id", "name", "length", "source")} for it in items]}
+
+
+def _datasets(_args: dict) -> dict:
+    from ..rna import datasets
+
+    return {"datasets": datasets.list_datasets(), "templates_available": len(datasets.template_library()),
+            "kaggle_configured": datasets.kaggle_configured()}
+
+
 _PATIENT_PROPS = {
     "age": {"type": "number", "description": "Age in years"},
     "male": {"type": "boolean"},
@@ -177,6 +227,44 @@ TOOLS: list[dict[str, Any]] = [
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
+        "name": "fold_rna",
+        "description": (
+            "Predict RNA secondary structure with ViennaRNA (Turner 2004 energies): MFE structure and energy, "
+            "ensemble free energy, centroid structure and per-nucleotide confidence from base-pair probabilities. "
+            "Give a sequence (ACGU; T is converted) or the id of a stored sequence."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"sequence": {"type": "string"}, "sequence_id": {"type": "integer"},
+                           "temperature_c": {"type": "number"}},
+            "required": [],
+        },
+    },
+    {
+        "name": "predict_rna_3d",
+        "description": (
+            "Predict an RNA 3D structure (C1' coarse-grained). 'template' uses loaded structure datasets; "
+            "'denovo' embeds the ViennaRNA secondary structure with A-form restraints (low tertiary accuracy); "
+            "'auto' tries template first. Returns method, template identity/coverage and per-residue confidence."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"sequence": {"type": "string"}, "sequence_id": {"type": "integer"},
+                           "method": {"type": "string", "enum": ["auto", "template", "denovo"]}},
+            "required": [],
+        },
+    },
+    {
+        "name": "list_rna_sequences",
+        "description": "List RNA sequences stored in this workspace (id, name, length, source). Optional name filter.",
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": []},
+    },
+    {
+        "name": "list_datasets",
+        "description": "List loaded datasets (Kaggle or uploaded), the number of 3D templates available and whether Kaggle is configured.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
         "name": "get_references",
         "description": "Return the bibliographic references of every model and formula implemented in this application.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
@@ -191,6 +279,10 @@ _DISPATCH: dict[str, Callable[[dict], dict]] = {
     "predict_symptom_risk": _risk,
     "get_risk_model_card": _model_card,
     "get_references": _references,
+    "fold_rna": _fold_rna,
+    "predict_rna_3d": _predict_rna,
+    "list_rna_sequences": _list_rna,
+    "list_datasets": _datasets,
 }
 
 

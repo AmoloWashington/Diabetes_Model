@@ -17,3 +17,12 @@ backend/.model_cache/
 .DS_Store
 .idea/
 .vscode/
+
+# App data (SQLite database, imported datasets)
+backend/.data/
+.data/
+
+# Web build
+web/node_modules/
+web/dist/
+*.tsbuildinfo

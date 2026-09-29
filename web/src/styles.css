@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ tokens
+   Warm paper + ink neutrals, deep jade brand, ochre accent.
+   Semantic variables switch between light (default, projector-friendly) and dark. */
+:root {
+  --canvas: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #faf9f6;
+  --surface-3: #f1efe9;
+  --line: #e6e3da;
+  --line-strong: #d3cfc3;
+  --ink: #15171c;
+  --ink-2: #3a3f4b;
+  --muted: #676c7a;
+  --faint: #9a9ea9;
+
+  --brand: #1b563e;
+  --brand-hover: #154531;
+  --brand-soft: #e7f1eb;
+  --brand-text: #1b563e;
+  --brand-ring: rgb(27 86 62 / 0.28);
+
+  --accent: #a8690f;
+  --accent-soft: #fbf2e2;
+  --danger: #b42318;
+  --danger-soft: #fdf1ef;
+  --warn: #b54708;
+  --warn-soft: #fff7e8;
+  --ok: #067647;
+  --ok-soft: #ebf8f0;
+
+  --viz-1: #1b563e;
+  --viz-2: #c07a12;
+  --viz-3: #b42318;
+  --viz-4: #6a5acd;
+  --viz-5: #3f7f7a;
+  --viz-grid: #ebe8df;
+
+  --shadow-sm: 0 1px 2px rgb(21 23 28 / 0.05);
+  --shadow-md: 0 1px 2px rgb(21 23 28 / 0.04), 0 4px 16px rgb(21 23 28 / 0.06);
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0e1013;
+  --surface: #15181d;
+  --surface-2: #1a1e24;
+  --surface-3: #20252c;
+  --line: #262b33;
+  --line-strong: #363c46;
+  --ink: #eceef1;
+  --ink-2: #c5c9d1;
+  --muted: #959aa6;
+  --faint: #6c717c;
+
+  --brand: #4fa37e;
+  --brand-hover: #63b791;
+  --brand-soft: rgb(79 163 126 / 0.13);
+  --brand-text: #7cc5a1;
+  --brand-ring: rgb(79 163 126 / 0.35);
+
+  --accent: #e0a64a;
+  --accent-soft: rgb(224 166 74 / 0.12);
+  --danger: #f0795f;
+  --danger-soft: rgb(240 121 95 / 0.12);
+  --warn: #efa35a;
+  --warn-soft: rgb(239 163 90 / 0.12);
+  --ok: #55c28b;
+  --ok-soft: rgb(85 194 139 / 0.12);
+
+  --viz-1: #5fb38c;
+  --viz-2: #e0a64a;
+  --viz-3: #f0795f;
+  --viz-4: #a79bf0;
+  --viz-5: #6fb7ae;
+  --viz-grid: #232830;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-text: var(--brand-text);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-pop: var(--shadow-md);
+}
+
+@layer base {
+  html {
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans text-[14px] leading-6;
+  }
+  ::selection {
+    background: var(--brand-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand-ring);
+    outline-offset: 2px;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    accent-color: var(--brand);
+  }
+}
+
+@layer components {
+  .prose-ai p { margin: 0 0 0.6rem; }
+  .prose-ai p:last-child { margin-bottom: 0; }
+  .prose-ai ul, .prose-ai ol { margin: 0.25rem 0 0.75rem 1.25rem; }
+  .prose-ai ul { list-style: disc; }
+  .prose-ai ol { list-style: decimal; }
+  .prose-ai li { margin: 0.15rem 0; }
+  .prose-ai h1, .prose-ai h2, .prose-ai h3, .prose-ai h4 { font-weight: 600; margin: 0.9rem 0 0.35rem; }
+  .prose-ai code { font-family: var(--font-mono); font-size: 0.85em; background: var(--surface-3); padding: 0.05rem 0.3rem; border-radius: 4px; }
+  .prose-ai pre { background: var(--surface-3); padding: 0.75rem; border-radius: 8px; overflow-x: auto; margin: 0.5rem 0; }
+  .prose-ai pre code { background: none; padding: 0; }
+  .prose-ai table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9em; }
+  .prose-ai th, .prose-ai td { border: 1px solid var(--line); padding: 0.3rem 0.6rem; text-align: left; }
+  .prose-ai a { color: var(--brand-text); text-decoration: underline; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

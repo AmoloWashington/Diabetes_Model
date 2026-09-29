@@ -1,140 +1,145 @@
-# GlucoLab: computational physiology of glucose regulation
+# GlucoLab
 
-GlucoLab combines **peer-reviewed mathematical models** of the glucose–insulin system, **model-driven
-cell and DNA animations**, a **leak-free validated machine-learning risk model**, and a
-**Claude-powered AI research assistant** whose numbers come only from those verified engines.
+**A research workbench for glucose physiology and RNA structure.** GlucoLab implements peer-reviewed
+mathematical models, validates each one against its publication in an automated test suite, animates the cell
+biology they describe, and adds a Claude-powered research assistant that reports only numbers it has computed
+with those engines.
 
 > Research and education software. Not a medical device and not a substitute for diagnosis by a clinician.
 
-## What is inside
+---
 
-| Area | Implementation | Source |
+## Run it on your computer
+
+You need **Python 3.11–3.13** ([python.org](https://www.python.org/downloads/)), **Node.js 20+**
+([nodejs.org](https://nodejs.org)) and **Git**.
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/AmoloWashington/Diabetes_Model.git
+cd Diabetes_Model
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1    # one time: installs Python + web dependencies, builds the UI
+powershell -ExecutionPolicy Bypass -File scripts\run.ps1      # every time
+```
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/AmoloWashington/Diabetes_Model.git
+cd Diabetes_Model
+scripts/setup.sh     # one time
+scripts/run.sh       # every time
+```
+
+Then open **http://localhost:8000**.
+
+The first start trains the diabetes risk model in the background (about 30 s); after that it loads from cache.
+
+### Optional: API keys
+
+`setup` creates a git-ignored `.env` from `.env.example`. Add keys there and restart:
+
+| Variable | Enables |
+|---|---|
+| `ANTHROPIC_API_KEY` | AI research assistant (default model `claude-opus-5`, set with `CLAUDE_MODEL`) |
+| `KAGGLE_API_TOKEN` (or `KAGGLE_USERNAME` + `KAGGLE_KEY`) | Importing datasets from Kaggle. Create the token at kaggle.com → Settings → API. For competitions, accept the rules on kaggle.com first. |
+
+Every other feature works offline, without keys. **Never commit `.env`.**
+
+### Other ways to run
+
+- **Development with hot reload:** `scripts/dev.sh` (or `scripts\dev.ps1`). The UI runs on http://localhost:5173 and proxies to the API on :8000.
+- **Docker** (also the fallback for Intel Macs, which have no ViennaRNA wheel):
+  ```bash
+  docker build -t glucolab .
+  docker run -p 8000:8000 --env-file .env -v glucolab-data:/data glucolab
+  ```
+- **Manual:**
+  1. `pip install -r requirements.txt`
+  2. `cd web && npm ci && npm run build`
+  3. `cd ../backend && uvicorn app.main:app`
+
+---
+
+## What's inside
+
+| Area | Module | Scientific basis |
 |---|---|---|
-| Meal response | 12-state nonlinear ODE model: gastric emptying, gut absorption, hepatic glucose production, insulin-dependent/independent utilisation, renal excretion, β-cell secretion, hepatic insulin extraction | Dalla Man, Rizza, Cobelli, *IEEE TBME* 54:1740 (2007), the core of the UVA/Padova simulator accepted by the FDA for pre-clinical testing |
-| β-cell mass over years | βIG slow–fast dynamical system with fixed-point and eigenvalue (linear stability) analysis | Topp et al., *J Theor Biol* 206:605 (2000) |
-| Insulin sensitivity | Bergman minimal model: IVGTT simulation, and nonlinear least-squares estimation of S<sub>I</sub>, S<sub>G</sub>, p₂ with CV% | Bergman et al., *Am J Physiol* 236:E667 (1979); Toffolo et al., *Diabetes* 29:979 (1980) |
-| Clinical indices | HOMA1-IR/%B, QUICKI, eAG, TyG, BMI, ADA diagnostic thresholds | Matthews 1985; Katz 2000; Nathan 2008; Simental-Mendía 2008; ADA Standards of Care |
-| Symptom risk ML | Logistic regression + random forest ensemble; grouped CV; bootstrap CIs; calibration; exact log-odds explanations; per-patient uncertainty; Bayes prior-shift | UCI dataset #529, Islam et al. (2020) |
-| Molecular lab | Standard genetic code (NCBI table 1), 3-frame translation, ORFs, reverse complement, T<sub>m</sub>, 3D B-DNA helix | Watson & Crick 1953 |
-| Cell Theatre | β-cell stimulus–secretion coupling; insulin receptor → IRS-1 → PI3K → PIP₃ → Akt → AS160 → GLUT4; INS gene → preproinsulin → proinsulin → insulin + C-peptide, all exportable as WebM video | Rorsman & Ashcroft, *Physiol Rev* 2018; Saltiel & Kahn, *Nature* 2001 |
-| AI assistant | Claude (default `claude-opus-5`) in a tool-use loop over the engines above, with every tool call shown to the user | Anthropic API |
+| **Physiology** | Meal simulation | Dalla Man, Rizza & Cobelli, *IEEE TBME* 2007: the 12-state core of the FDA-accepted UVA/Padova simulator |
+| | β-cell dynamics | Topp et al., *J Theor Biol* 2000: slow–fast dynamics with fixed points and eigenvalue stability |
+| | Insulin sensitivity | Bergman minimal model (1979): IVGTT simulation and S<sub>I</sub>/S<sub>G</sub>/p₂ estimation with CV% |
+| | Clinical indices | HOMA1, QUICKI, eAG, TyG, BMI, ADA diagnostic thresholds |
+| **Cell & molecular** | Cell theatre | Model-driven animations: β-cell stimulus–secretion coupling, insulin → GLUT4 signalling, INS gene → insulin. Export to WebM video. |
+| | DNA lab | 3D B-DNA built from any sequence, 3-frame translation (NCBI table 1), ORFs, T<sub>m</sub> |
+| **RNA structure** | Sequences | Upload/paste FASTA, validation (ACGU, T→U, IUPAC flagged), SQLite storage with SHA-256 de-duplication, ViennaRNA folding (MFE, ensemble, pair probabilities, arc diagram) |
+| | 3D prediction | Template-based modelling from loaded structure datasets; coarse-grained de novo fallback from ViennaRNA structure + A-form restraints; per-residue confidence; PDB export; leave-one-out TM-score benchmark |
+| | Structure viewer | 3Dmol.js (the engine behind py3Dmol): predicted, uploaded and RCSB PDB structures; colour by confidence/nucleotide/chain; TM-score and RMSD comparison; py3Dmol notebook snippet |
+| **Data & models** | Dataset explorer | Kaggle import via the official `kagglehub` client (e.g. Stanford RNA 3D Folding), file upload, schema and row browser, RNA analytics, template library |
+| | Diabetes risk model | Symptom classifier with leak-free grouped cross-validation, bootstrap CIs, calibration, exact explanations |
+| **AI** | Research assistant | Claude in a tool-use loop over all engines above. Every tool call is shown for auditing. |
 
-Full references are in the app (**References** tab) and at `GET /api/references`.
+### How the RNA 3D confidence works (read this before presenting predictions)
 
-## Scientific validation (enforced by the test suite)
+- **Template-based models:** confidence is a heuristic of alignment quality (sequence identity, whether each residue matched or was gap-filled). The *Calibration benchmark* on the prediction page runs a leave-one-out test on your loaded structures, so you can see how confidence relates to TM-score before trusting it.
+- **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
+- Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-The tests in `backend/tests/` check the implementations against published results, not just that they run:
+## Validation (enforced by 73 automated tests)
 
-- **Dalla Man 2007.** The parameters the paper reports as derived, kp1 = 2.70 mg/kg/min and m6 = 0.6471,
-  are *recomputed independently* from steady-state constraints and match (2.698 and 0.6469). The model
-  starts at an exact equilibrium (|dx/dt| < 1e-12) and conserves mass (appeared glucose = f·D/BW within 0.5%).
-  A 75 g meal in the normal subject peaks at 155 mg/dl at 66 min, with a 2-h glucose of 132 mg/dl (normal tolerance).
-- **Topp 2000.** Fixed points G = 100 mg/dl, I = 10 µU/ml, β = 300 mg (stable), the saddle at G = 250 mg/dl,
-  and the pathological state at 600 mg/dl are reproduced. The compensation law (β\* ∝ 1/S<sub>I</sub>) holds,
-  and a rapid fall in S<sub>I</sub> leads to β-cell collapse while a slow fall is compensated.
-- **Minimal model.** The estimator recovers S<sub>I</sub>, S<sub>G</sub> and p₂ within 1–2% from noise-free data.
-- **Indices.** Formula-exact values and ADA threshold boundaries (e.g. FPG 125.9 → prediabetes, 126 → diabetes; HbA1c 7% → eAG 154 mg/dl).
-- **Molecular.** The codon table has 64 codons and three stops. The demo sequence translates to the true insulin B chain,
-  and the cysteine positions (A6, A7, A11, A20; B7, B19) give the A6–A11, A7–B7 and A20–B19 disulfides drawn in the animation.
+| Model | Check | Published | GlucoLab |
+|---|---|---|---|
+| Dalla Man 2007 | k<sub>p1</sub> derived from steady state | 2.70 | 2.698 |
+| Dalla Man 2007 | m6 (hepatic extraction) | 0.6471 | 0.6469 |
+| Topp 2000 | Physiological fixed point G, I, β | 100, 10, 300 | 100, 10, 300 |
+| Topp 2000 | Saddle glucose | 250 mg/dl | 250 mg/dl |
+| ADAG 2008 | eAG at HbA1c 7% | 154 mg/dl | 154.2 mg/dl |
+| Minimal model | S<sub>I</sub> recovery from noise-free data | 5.00e-4 | 5.00e-4 |
+| RNA 3D | TM-score of a rotated copy / random coil | 1 / ≈0 | 1.000 / <0.2 |
+| ViennaRNA | GGGAAAUCCCGCGCAAAGCGC MFE | `(((....)))((((...))))` | identical |
 
-## Key finding about the original model: data leakage
+Also tested:
+- mass conservation, and exact equilibrium at basal;
+- de novo helix geometry: paired C1′–C1′ distance 10.5 Å, RMSD 0.004 Å to an ideal right-handed A-form stem;
+- PDB round-trip;
+- FASTA validation;
+- Kaggle import with a mocked downloader;
+- path-traversal rejection;
+- the AI loop, with a fake client.
 
-**269 of the dataset's 520 rows are exact duplicates** (only 251 unique records). The previous app used a
-random train/test split, which puts copies of the same record on both sides and inflates accuracy.
-GlucoLab evaluates with `StratifiedGroupKFold`, grouping identical records (5×5 repeated), and reports:
+### Data-leakage finding in the original model
 
-| Evaluation | Accuracy | ROC AUC |
-|---|---|---|
-| Naive random K-fold (leaky) | 96.9% | 0.997 |
-| **Grouped, leak-free (ensemble)** | **90.8%** | **0.972** (95% CI 0.95–0.99) |
+269 of the 520 records in the public symptom dataset are exact duplicates. A random train/test split puts copies
+on both sides and inflates accuracy from **90.8% (leak-free) to 96.9%**. GlucoLab evaluates with grouped
+cross-validation and reports both numbers.
 
-Other changes from the previous version:
+## Architecture
 
-- The old "Mild Diabetes (Borderline)" stage derived from classifier probability has been removed. A probability is not a disease stage.
-- The model trains once and is cached. It no longer retrains on every page visit.
-- The committed virtualenv and the unversioned `.pkl` are no longer used.
-
-The original Streamlit code is preserved on the `master` branch.
-
-## Running
-
-```bash
-pip install -r requirements.txt
-cd backend
-uvicorn app.main:app --port 8000
-# open http://localhost:8000
+```
+web/        React 19 + TypeScript + Vite + Tailwind CSS 4 · TanStack Query · Recharts · three.js · 3Dmol.js
+backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · kagglehub · Anthropic SDK · SQLite
+  app/physiology/   meal model, β-cell model, minimal model, clinical indices
+  app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
+  app/ml/           leak-free risk model
+  app/ai/           Claude agent loop and tools
+  tests/            73 tests
+data/       UCI early-stage diabetes dataset (#529)
+scripts/    setup / run / dev for Windows and macOS/Linux
 ```
 
-The first start trains the risk model (about 30 s, in the background). The model is then cached in `backend/.model_cache/`.
-
-### Enabling the AI assistant
-
-Create a git-ignored `.env` in the repository root (see `.env.example`) or export the variables:
+Interactive API documentation: http://localhost:8000/docs
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...        # never commit this
-CLAUDE_MODEL=claude-opus-5          # default
-CLAUDE_EFFORT=high                  # low | medium | high | xhigh | max
-CLAUDE_FALLBACKS=true               # server-side refusal fallback ("default" routing)
-AI_RATE_LIMIT_PER_MIN=12            # per client IP
+cd backend && python -m pytest            # backend tests
+cd web && npm run typecheck && npm run build
 ```
-
-Everything except the chat works without a key. The assistant uses adaptive thinking and a manual tool-use
-loop (at most 8 rounds). Every tool input is validated with the same Pydantic schemas as the REST API, and invalid
-inputs come back to the model as tool errors instead of crashing the request.
-
-### Docker
-
-```bash
-docker build -t glucolab .
-docker run -p 8000:8000 --env-file .env glucolab
-```
-
-### Tests
-
-```bash
-pip install -r requirements-dev.txt
-cd backend && python -m pytest       # 55 tests; no network needed (the AI loop uses a fake client)
-```
-
-CI (`.github/workflows/ci.yml`) runs the suite and a syntax check of the frontend on every push.
-
-## API
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/health` | Status, model readiness, AI configuration |
-| GET | `/api/physiology/phenotypes` | Available meal-model phenotypes |
-| POST | `/api/physiology/meal` | Meal simulation (Dalla Man 2007) |
-| POST | `/api/physiology/beta-cell` | Long-term β-cell simulation (Topp 2000) |
-| GET | `/api/physiology/beta-cell/fixed-points?si_fraction=` | Fixed points and eigenvalues |
-| POST | `/api/physiology/ivgtt` · `/api/physiology/ivgtt/fit` | Minimal-model simulation and S<sub>I</sub> estimation |
-| POST | `/api/clinical/indices` | HOMA, QUICKI, eAG, TyG, BMI, ADA classification |
-| POST | `/api/risk/predict` · GET `/api/risk/model-card` | Risk prediction and full validation report |
-| GET | `/api/dna/demo` · POST `/api/dna/analyze` | Sequence analysis |
-| GET | `/api/ai/status` · POST `/api/ai/chat` | AI assistant |
-
-Interactive OpenAPI docs are at `/docs`.
 
 ## Honest limitations
 
-- Only the "Healthy adult" meal phenotype uses a published parameter set. The insulin-resistant and
-  type 2 phenotypes are transparent scalings of it and are labelled as such everywhere.
-- Minimal-model defaults are illustrative, typical-order values. Parameter estimates are meaningful only with a frequently sampled IVGTT.
-- The symptom model comes from a single hospital-based population (61.5% positive). It is not a population screening test.
-- Animations are schematic. Their *rates* come from the models, their *sequence of events* from the cited reviews, and their geometry is illustrative.
-- The AI assistant can still make mistakes in interpretation. The tool-call trace under each answer exists so that you can check it.
+- Only the healthy-adult meal phenotype uses a published parameter set. The insulin-resistant and type 2 phenotypes are labelled scalings of it.
+- RNA 3D prediction is template-based or coarse-grained. It is not a substitute for experimental structures or for deep-learning structure predictors, and the confidence scores are explained above.
+- The symptom model comes from one hospital population (61.5% positive). It is not a screening test.
+- Animations are schematic in geometry. Their rates come from the models, and their sequence of events from the cited reviews.
+- RCSB PDB and Kaggle downloads need internet access, and Kaggle needs your own token.
 
-## Project layout
-
-```
-backend/app/
-  physiology/  uva_padova.py · beta_cell.py · minimal_model.py · indices.py
-  ml/          risk_model.py
-  molecular/   dna.py
-  ai/          assistant.py (agent loop) · tools.py (engine tools)
-  services.py · schemas.py · config.py · main.py (FastAPI)
-backend/tests/ scientific, API and AI-loop tests
-frontend/      index.html · css/ · js/ (app, cells, dna3d, util) · vendor/ (three.js, Chart.js; MIT)
-data/          diabetes_symptoms_data.csv (UCI #529)
-```
+The original Streamlit prototype is preserved on the `master` branch.

@@ -1,10 +1,15 @@
-# Runtime dependencies (tested with the versions in brackets)
+# Runtime dependencies (tested with the versions in brackets). Python 3.11-3.13.
 fastapi>=0.115,<1          # [0.141.1]
 uvicorn[standard]>=0.30    # [0.54.0]
 pydantic>=2.7,<3           # [2.13.5]
+python-multipart>=0.0.9    # file uploads
+httpx>=0.27                # RCSB PDB download
 numpy>=2.0,<3              # [2.4.6]  (np.trapezoid requires NumPy 2)
 scipy>=1.13                # [1.17.1]
 scikit-learn>=1.4          # [1.9.1]
 pandas>=2.1                # [3.0.6]
 joblib>=1.3                # [1.6.0]
 anthropic>=1.9,<2          # [1.9.0]  (server-side fallbacks, output_config)
+ViennaRNA>=2.6             # [2.7.2]  RNA secondary structure
+biopython>=1.85            # [1.88]   sequence alignment
+kagglehub>=0.3             # [1.0.2]  Kaggle downloads

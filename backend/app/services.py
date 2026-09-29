@@ -56,6 +56,15 @@ REFERENCES = [
     {"id": "saltiel2001", "used_for": "Insulin receptor signalling and GLUT4 translocation (animation)",
      "citation": "Saltiel AR, Kahn CR. Insulin signalling and the regulation of glucose and lipid metabolism. "
                  "Nature. 2001;414(6865):799-806."},
+    {"id": "lorenz2011", "used_for": "RNA secondary structure (MFE, partition function, pair probabilities)",
+     "citation": "Lorenz R, Bernhart SH, Hoener zu Siederdissen C, Tafer H, Flamm C, Stadler PF, Hofacker IL. "
+                 "ViennaRNA Package 2.0. Algorithms Mol Biol. 2011;6:26.", "doi": "10.1186/1748-7188-6-26"},
+    {"id": "zhang2022", "used_for": "TM-score d0 for RNA structure comparison",
+     "citation": "Zhang C, Shine M, Pyle AM, Zhang Y. US-align: universal structure alignments of proteins, "
+                 "nucleic acids, and macromolecular complexes. Nat Methods. 2022;19:1109-1115."},
+    {"id": "rego2015", "used_for": "3D molecular viewer (3Dmol.js; py3Dmol is its Python wrapper)",
+     "citation": "Rego N, Koes D. 3Dmol.js: molecular visualization with WebGL. Bioinformatics. "
+                 "2015;31(8):1322-1324.", "doi": "10.1093/bioinformatics/btu829"},
     {"id": "watson1953", "used_for": "DNA double helix",
      "citation": "Watson JD, Crick FHC. Molecular structure of nucleic acids: a structure for deoxyribose nucleic "
                  "acid. Nature. 1953;171(4356):737-738."},
