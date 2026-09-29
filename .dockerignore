@@ -4,4 +4,7 @@
 **/__pycache__
 **/.pytest_cache
 backend/.model_cache
-diabetes/
+backend/.data
+.venv
+web/node_modules
+web/dist

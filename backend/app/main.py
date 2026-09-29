@@ -22,6 +22,7 @@ from .config import settings
 from .ml import risk_model
 from .molecular import dna
 from .physiology import uva_padova
+from .rna.api import router as rna_router
 from .schemas import (
     BetaCellRequest, ChatRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
     MealSimRequest, RiskRequest,
@@ -30,7 +31,7 @@ from .schemas import (
 log = logging.getLogger("glucolab")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
 @asynccontextmanager
@@ -52,6 +53,7 @@ app = FastAPI(
     ),
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.include_router(rna_router)
 if settings.cors_origins:
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
@@ -204,11 +206,24 @@ async def ai_chat(req: ChatRequest, request: Request) -> dict:
     return assistant.reply_to_dict(reply)
 
 
-# ---------------------------------------------------------------- frontend
+# ---------------------------------------------------------------- frontend (React build)
 
 if FRONTEND_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        f = (FRONTEND_DIR / path).resolve()
+        if path and f.is_file() and FRONTEND_DIR.resolve() in f.parents:
+            return FileResponse(f)
+        return FileResponse(FRONTEND_DIR / "index.html")
+else:
 
     @app.get("/", include_in_schema=False)
-    def index() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "index.html")
+    def no_frontend() -> JSONResponse:
+        return JSONResponse({
+            "message": "GlucoLab API is running. The web UI has not been built yet: "
+                       "run `npm install && npm run build` in web/ (or use scripts/dev.sh). API docs: /docs",
+        })

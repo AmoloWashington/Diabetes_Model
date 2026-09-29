@@ -18,8 +18,9 @@ def _load_dotenv(path: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
+        value = value.split(" #", 1)[0]  # allow trailing comments
         key, value = key.strip(), value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        if key and value and key not in os.environ:  # blank values are ignored
             os.environ[key] = value
 
 

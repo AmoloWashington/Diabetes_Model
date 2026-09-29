@@ -24,11 +24,15 @@ PATIENT = {"age": 50, "male": True, **{k: False for k in [
 
 
 def test_health_and_frontend(client):
+    from app.main import FRONTEND_DIR
+
     assert client.get("/api/health").json()["status"] == "ok"
     r = client.get("/")
     assert r.status_code == 200 and "GlucoLab" in r.text
-    assert client.get("/static/js/app.js").status_code == 200
     assert r.headers["x-content-type-options"] == "nosniff"
+    if FRONTEND_DIR.is_dir():  # built UI: client-side routes fall back to index.html
+        assert client.get("/rna/sequences").text == r.text
+    assert client.get("/api/does-not-exist").status_code == 404
 
 
 def test_meal_endpoint(client):
@@ -150,9 +154,17 @@ def test_max_tool_rounds_is_enforced():
     assert len(msgs.calls) == settings.ai_max_tool_rounds + 1
 
 
-def test_every_tool_runs_with_minimal_valid_input():
+def test_every_tool_runs_with_minimal_valid_input(tmp_path, monkeypatch):
     from app.ai.tools import TOOLS, run_tool
+    from app.rna import datasets, store
+
+    store.set_store(store.Store(tmp_path / "t.db"))
+    monkeypatch.setattr(datasets, "DATA_DIR", tmp_path / "datasets")
     samples = {
+        "fold_rna": {"sequence": "GGGAAAUCCCGCGCAAAGCGC"},
+        "predict_rna_3d": {"sequence": "GGGCGCAAGCCUAUGCGCUUCGGCGCAUAGGCUUGCGCCC", "method": "denovo"},
+        "list_rna_sequences": {},
+        "list_datasets": {},
         "simulate_meal": {"meals": [{"time_min": 0, "carbs_g": 50}], "duration_min": 240},
         "simulate_beta_cell_progression": {"years": 2},
         "simulate_ivgtt": {},
