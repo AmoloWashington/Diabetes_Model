@@ -1,0 +1,177 @@
+"""HTTP API and AI-assistant loop (with a fake Anthropic client; no network)."""
+
+import json
+from types import SimpleNamespace as NS
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.ai import assistant
+from app.config import settings
+from app.main import app
+
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as c:
+        yield c
+
+
+PATIENT = {"age": 50, "male": True, **{k: False for k in [
+    "polyuria", "polydipsia", "sudden_weight_loss", "weakness", "polyphagia", "genital_thrush",
+    "visual_blurring", "itching", "irritability", "delayed_healing", "partial_paresis",
+    "muscle_stiffness", "alopecia", "obesity"]}}
+
+
+def test_health_and_frontend(client):
+    assert client.get("/api/health").json()["status"] == "ok"
+    r = client.get("/")
+    assert r.status_code == 200 and "GlucoLab" in r.text
+    assert client.get("/static/js/app.js").status_code == 200
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_meal_endpoint(client):
+    r = client.post("/api/physiology/meal", json={"meals": [{"time_min": 0, "carbs_g": 75}], "duration_min": 300})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["series"]["t_min"]) == 301
+    assert body["phenotype"]["published_parameter_set"] is True
+
+
+@pytest.mark.parametrize("payload", [
+    {"meals": [{"time_min": 0, "carbs_g": -5}]},
+    {"meals": [{"time_min": 400, "carbs_g": 50}], "duration_min": 300},
+    {"phenotype": "type1"},
+    {"unexpected": 1},
+])
+def test_meal_validation(client, payload):
+    assert client.post("/api/physiology/meal", json=payload).status_code == 422
+
+
+def test_other_endpoints(client):
+    assert client.post("/api/physiology/beta-cell", json={"years": 2}).status_code == 200
+    assert client.post("/api/physiology/beta-cell", json={"years": 2, "si_decline_years": 5}).status_code == 422
+    assert client.get("/api/physiology/beta-cell/fixed-points?si_fraction=0.5").status_code == 200
+    assert client.get("/api/physiology/beta-cell/fixed-points?si_fraction=9").status_code == 422
+    assert client.post("/api/physiology/ivgtt", json={}).status_code == 200
+    r = client.post("/api/clinical/indices", json={"fasting_glucose_mg_dl": 100, "fasting_insulin_uU_ml": 10})
+    assert r.status_code == 200 and "homa1" in r.json()
+    assert client.post("/api/dna/analyze", json={"sequence": "ATGAAATAG"}).status_code == 200
+    assert client.post("/api/dna/analyze", json={"sequence": "XYZ"}).status_code == 422
+    assert client.post("/api/risk/predict", json={"patient": PATIENT}).status_code == 200
+    assert client.get("/api/references").json()["references"]
+
+
+def test_chat_validation(client):
+    bad = {"messages": [{"role": "assistant", "content": "hi"}]}
+    assert client.post("/api/ai/chat", json=bad).status_code == 422
+    bad2 = {"messages": [{"role": "user", "content": "a"}, {"role": "user", "content": "b"}]}
+    assert client.post("/api/ai/chat", json=bad2).status_code == 422
+
+
+def test_chat_unconfigured_returns_503(client, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    r = client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "hello"}]})
+    assert r.status_code == 503
+
+
+# ------------------------------------------------------------ fake Anthropic client
+
+def _msg(content, stop_reason, model="claude-opus-5"):
+    return NS(content=content, stop_reason=stop_reason, model=model, usage=NS(input_tokens=10, output_tokens=5))
+
+
+class FakeMessages:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def create(self, **kw):
+        # snapshot the messages list as sent
+        self.calls.append({**kw, "messages": list(kw["messages"])})
+        return self.responses.pop(0)
+
+
+def fake_client(responses):
+    msgs = FakeMessages(responses)
+    return NS(beta=NS(messages=msgs)), msgs
+
+
+def test_agent_loop_runs_tools_and_returns_grounded_answer():
+    tool_use = NS(type="tool_use", id="toolu_1", name="compute_clinical_indices",
+                  input={"fasting_glucose_mg_dl": 90, "fasting_insulin_uU_ml": 10})
+    c, msgs = fake_client([
+        _msg([NS(type="thinking", thinking=""), tool_use], "tool_use"),
+        _msg([NS(type="text", text="HOMA-IR is 2.22.")], "end_turn"),
+    ])
+    reply = assistant.chat([{"role": "user", "content": "HOMA?"}], client=c)
+    assert reply.text == "HOMA-IR is 2.22."
+    assert [t.name for t in reply.tool_calls] == ["compute_clinical_indices"]
+    assert not reply.tool_calls[0].is_error
+    first, second = msgs.calls
+    assert first["model"] == settings.claude_model
+    assert first["thinking"] == {"type": "adaptive"}
+    assert first["output_config"] == {"effort": settings.claude_effort}
+    if settings.claude_fallbacks:
+        assert first["fallbacks"] == "default"
+        assert first["betas"] == ["server-side-fallback-2026-07-01"]
+    # the assistant turn is replayed verbatim, followed by one user turn of tool results
+    assert second["messages"][1]["content"][1] is tool_use
+    result = second["messages"][2]["content"][0]
+    assert result["type"] == "tool_result" and result["tool_use_id"] == "toolu_1"
+    homa = json.loads(result["content"])["homa1"]["homa_ir"]
+    assert homa == pytest.approx(10 * (90 / 18.016) / 22.5)
+    assert reply.usage == {"input_tokens": 20, "output_tokens": 10}
+
+
+def test_invalid_tool_input_is_reported_as_tool_error():
+    tu = NS(type="tool_use", id="t1", name="simulate_meal", input={"meals": [{"time_min": 0, "carbs_g": 9999}]})
+    c, msgs = fake_client([_msg([tu], "tool_use"), _msg([NS(type="text", text="Invalid.")], "end_turn")])
+    reply = assistant.chat([{"role": "user", "content": "x"}], client=c)
+    assert reply.tool_calls[0].is_error
+    assert msgs.calls[1]["messages"][2]["content"][0]["is_error"] is True
+
+
+def test_unknown_tool_and_refusal():
+    tu = NS(type="tool_use", id="t1", name="rm_rf", input={})
+    c, _ = fake_client([_msg([tu], "tool_use"), _msg([], "refusal")])
+    reply = assistant.chat([{"role": "user", "content": "x"}], client=c)
+    assert reply.tool_calls[0].is_error
+    assert reply.stop_reason == "refusal"
+
+
+def test_max_tool_rounds_is_enforced():
+    tu = NS(type="tool_use", id="t", name="get_references", input={})
+    c, msgs = fake_client([_msg([tu], "tool_use") for _ in range(settings.ai_max_tool_rounds + 1)])
+    reply = assistant.chat([{"role": "user", "content": "loop"}], client=c)
+    assert reply.stop_reason == "max_tool_rounds"
+    assert len(msgs.calls) == settings.ai_max_tool_rounds + 1
+
+
+def test_every_tool_runs_with_minimal_valid_input():
+    from app.ai.tools import TOOLS, run_tool
+    samples = {
+        "simulate_meal": {"meals": [{"time_min": 0, "carbs_g": 50}], "duration_min": 240},
+        "simulate_beta_cell_progression": {"years": 2},
+        "simulate_ivgtt": {},
+        "compute_clinical_indices": {"hba1c_pct": 6.0},
+        "predict_symptom_risk": {"patient": PATIENT},
+        "get_risk_model_card": {},
+        "get_references": {},
+    }
+    assert set(samples) == {t["name"] for t in TOOLS}
+    for name, args in samples.items():
+        out, err = run_tool(name, args)
+        assert not err, (name, out)
+        json.loads(out)
+
+
+def test_chat_endpoint_with_fake_client(client, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    c, _ = fake_client([_msg([NS(type="text", text="Hello from the model.")], "end_turn")])
+    monkeypatch.setattr(assistant, "_client", c)
+    r = client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 200
+    assert r.json()["text"] == "Hello from the model."

@@ -1,0 +1,7 @@
+.git
+.env
+.env.*
+**/__pycache__
+**/.pytest_cache
+backend/.model_cache
+diabetes/
