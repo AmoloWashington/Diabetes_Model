@@ -35,3 +35,21 @@ jobs:
         run: npm run typecheck
       - name: Production build
         run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the deployable image
+        run: docker build -t glucolab .
+      - name: Start on a platform-assigned port and check health
+        run: |
+          docker run -d --name glucolab -e PORT=9000 -p 9000:9000 glucolab
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/api/health; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:9000/api/health
+          curl -fsS http://localhost:9000/ | grep -q '<div id="root">'
+      - if: failure()
+        run: docker logs glucolab
