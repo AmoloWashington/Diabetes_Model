@@ -1,0 +1,15 @@
+# One-click deploy on Render: https://render.com/deploy?repo=https://github.com/AmoloWashington/Diabetes_Model
+# Builds the Dockerfile (React UI + FastAPI) as a single web service.
+services:
+  - type: web
+    name: glucolab
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      # Optional. Without a key every feature except the AI assistant works.
+      # Set it in the Render dashboard; never commit it.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_RATE_LIMIT_PER_MIN
+        value: "6"

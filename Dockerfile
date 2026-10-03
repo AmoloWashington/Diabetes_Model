@@ -24,4 +24,5 @@ USER appuser
 VOLUME ["/data"]
 EXPOSE 8000
 WORKDIR /app/backend
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hosting platforms (Render, Railway, Fly.io, Cloud Run) pass the port in $PORT; default 8000 locally.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

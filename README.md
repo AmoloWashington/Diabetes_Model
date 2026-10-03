@@ -55,6 +55,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
   docker build -t glucolab .
   docker run -p 8000:8000 --env-file .env -v glucolab-data:/data glucolab
   ```
+- **Deploy online (Render, free tier):** sign in at render.com, choose *New → Blueprint*, and pick this repository. `render.yaml` builds the Dockerfile as one web service and gives you a public `https://….onrender.com` URL. If you want the AI assistant, add `ANTHROPIC_API_KEY` in the Render dashboard, and note that every visitor's questions are billed to that key (requests are rate-limited per minute). On the free tier the service sleeps when idle, and stored sequences and datasets are lost on restart. Attach a disk at `/data` to keep them. The same Dockerfile also runs on Railway, Fly.io and Google Cloud Run, which supply `$PORT`.
 - **Manual:**
   1. `pip install -r requirements.txt`
   2. `cd web && npm ci && npm run build`

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity, BookOpen, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
-  Microscope, Moon, Orbit, ScanSearch, Sun, TestTubes, Timer, X, Zap,
+  Microscope, Moon, Orbit, ScanSearch, Sigma, Sun, TestTubes, Timer, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -11,7 +11,7 @@ import { cx } from "./ui";
 
 type Item = { to: string; label: string; icon: ReactNode };
 const NAV: { group: string | null; items: Item[] }[] = [
-  { group: null, items: [{ to: "/", label: "Overview", icon: <LayoutDashboard /> }] },
+  { group: null, items: [{ to: "/", label: "Overview", icon: <LayoutDashboard /> }, { to: "/methods", label: "Math & physics", icon: <Sigma /> }] },
   {
     group: "Physiology",
     items: [

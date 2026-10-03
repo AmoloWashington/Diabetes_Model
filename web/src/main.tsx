@@ -21,6 +21,7 @@ const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { path: "/", element: page(() => import("./pages/Overview")) },
+      { path: "/methods", element: page(() => import("./pages/MathPhysics")) },
       { path: "/physiology/meal", element: page(() => import("./pages/MealLab")) },
       { path: "/physiology/beta-cell", element: page(() => import("./pages/BetaCell")) },
       { path: "/physiology/minimal-model", element: page(() => import("./pages/MinimalModel")) },
