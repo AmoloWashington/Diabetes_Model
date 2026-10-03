@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -13,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import services
@@ -24,8 +25,8 @@ from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
-    BetaCellRequest, ChatRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
-    MealSimRequest, RiskRequest,
+    BetaCellRequest, ChatRequest, DiffusionRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    MealSimRequest, MembraneRequest, RiskRequest,
 )
 
 log = logging.getLogger("glucolab")
@@ -156,6 +157,16 @@ async def ivgtt_fit(req: IVGTTFitRequest) -> dict:
     return await run_in_threadpool(services.ivgtt_fit, req)
 
 
+@app.post("/api/biophysics/membrane")
+def biophysics_membrane(req: MembraneRequest) -> dict:
+    return services.membrane(req)
+
+
+@app.post("/api/biophysics/diffusion")
+def biophysics_diffusion(req: DiffusionRequest) -> dict:
+    return services.diffusion(req)
+
+
 @app.post("/api/clinical/indices")
 def clinical(req: IndicesRequest) -> dict:
     return services.clinical_indices(req)
@@ -198,12 +209,28 @@ def ai_status() -> dict:
 async def ai_chat(req: ChatRequest, request: Request) -> dict:
     _rate_limit(request)
     try:
-        reply = await run_in_threadpool(assistant.chat, [m.model_dump() for m in req.messages])
+        reply = await run_in_threadpool(assistant.chat, [m.model_dump() for m in req.messages], None,
+                                        req.context.model_dump() if req.context else None)
     except assistant.AssistantUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except assistant.AssistantError as e:
         raise HTTPException(status_code=e.status, detail=str(e)) from e
     return assistant.reply_to_dict(reply)
+
+
+@app.post("/api/ai/chat/stream")
+def ai_chat_stream(req: ChatRequest, request: Request) -> StreamingResponse:
+    """Server-Sent Events: text deltas, reasoning summaries and tool calls as they happen."""
+    _rate_limit(request)
+    history = [m.model_dump() for m in req.messages]
+    ctx = req.context.model_dump() if req.context else None
+
+    def gen():
+        for ev in assistant.stream_events(history, context=ctx):
+            yield f"data: {json.dumps(ev, default=str)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 # ---------------------------------------------------------------- frontend (React build)

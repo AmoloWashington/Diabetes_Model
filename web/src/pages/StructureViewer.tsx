@@ -103,7 +103,7 @@ export default function StructureViewer() {
                       <option value="chain">Colour: chain</option><option value="spectrum">Colour: 5′→3′ spectrum</option>
                     </Select></div>
                     <div className="w-36"><Select value={style} onChange={(e) => setStyle(e.target.value as StyleKind)} className="h-8 text-[13px]" aria-label="Style">
-                      <option value="auto">Style: auto</option><option value="cartoon">Cartoon</option><option value="trace">Trace</option><option value="stick">Sticks</option><option value="sphere">Spheres</option>
+                      <option value="auto">Style: auto</option><option value="cartoon">Cartoon</option><option value="trace">Trace</option><option value="stick">Sticks</option><option value="sphere">Spheres</option><option value="surface">Molecular surface</option>
                     </Select></div>
                     <Button size="sm" icon={<Download className="size-4" />} onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([s.pdb])); a.download = `glucolab_structure_${s.id}.${s.meta?.format === "mmcif" ? "cif" : "pdb"}`; a.click(); }}>Download</Button>
                     <Button size="sm" variant="danger" icon={<Trash2 className="size-4" />} onClick={() => { if (confirm("Delete this structure?")) del.mutate(s.id); }} />

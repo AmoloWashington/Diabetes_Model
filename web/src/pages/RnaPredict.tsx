@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { BarChart3, Box, Cpu, Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -8,6 +9,7 @@ import { Badge, Button, Callout, Card, CardHeader, Empty, Field, PageHeader, Seg
 import { api, type DatasetMeta, type PredictResult, type RnaSequence } from "@/lib/api";
 import { fmt } from "@/lib/format";
 import { dotBracketPairs } from "@/lib/rna";
+import { AskAI } from "@/components/AskAI";
 
 type Method = "auto" | "template" | "denovo";
 interface Bench { n_targets: number; n_with_template: number; mean_tm_score: number | null; confidence_tm_correlation: number | null; max_template_identity: number;
@@ -49,6 +51,8 @@ export default function RnaPredict() {
   return (
     <div>
       <PageHeader eyebrow="RNA structure" title="3D structure prediction"
+        actions={<AskAI page="RNA 3D prediction" question="Explain this RNA structure prediction and how far its confidence can be trusted."
+          summary={r ? `Sequence (${r.sequence.length} nt): ${r.sequence.slice(0, 300)}. Method: ${r.method}. ${r.template_id ? "Mean template confidence" : "Mean secondary-structure (ensemble-probability) confidence, which does not measure 3D accuracy,"} ${(100 * r.mean_confidence).toFixed(0)}/100.${r.template_id ? ` Template ${r.template_id}, identity ${(100 * (r.identity ?? 0)).toFixed(1)}%, coverage ${(100 * (r.coverage ?? 0)).toFixed(1)}%.` : ""}${r.secondary_structure ? ` Secondary structure: ${r.secondary_structure.slice(0, 300)}; MFE ${r.mfe_kcal_mol?.toFixed(2)} kcal/mol.` : ""} Caveat: ${r.caveat}` : ""} />}
         description="C1'-level models with per-residue confidence. Template-based modelling uses structures from loaded datasets; without a suitable template a coarse-grained de novo model is built from the ViennaRNA secondary structure." />
       <div className="grid xl:grid-cols-[340px_1fr] gap-5 items-start">
         <Card className="xl:sticky xl:top-8">
@@ -86,7 +90,9 @@ export default function RnaPredict() {
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Stat label="Mean confidence" value={fmt(100 * r.mean_confidence, 0)} hint="0–100 per residue" />
+                {r.template_id
+                  ? <Stat label="Mean confidence" value={fmt(100 * r.mean_confidence, 0)} hint="alignment-quality heuristic, 0–100" />
+                  : <Stat label="2° structure confidence" value={fmt(100 * r.mean_confidence, 0)} hint="ensemble probability; not 3D accuracy" />}
                 {r.template_id ? (
                   <>
                     <Stat label="Template" value={<span className="text-[16px]">{r.template_id}</span>} />
@@ -118,7 +124,7 @@ export default function RnaPredict() {
                   <div className="text-faint">{r.sequence}</div><div>{r.secondary_structure}</div>
                 </div>
               )}
-              <ChartCard title="Per-residue confidence" subtitle="0–100; coloured by confidence bin">
+              <ChartCard title="Per-residue confidence" subtitle={r.template_id ? "0–100; alignment-quality heuristic, coloured by bin" : "0–100; ViennaRNA probability of each nucleotide's MFE pairing state, unpaired capped at 50 (secondary structure only)"}>
                 <Bars data={confRows} x="pos" y="conf" height={200} xLabel="residue" colorFn={(row) => binColor(Number(row.conf))} />
               </ChartCard>
             </>
@@ -150,6 +156,7 @@ export default function RnaPredict() {
           </Card>
         </div>
       </div>
+      <div className="mt-6"><MethodsPanel id="rna3d" /></div>
     </div>
   );
 }

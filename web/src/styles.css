@@ -155,6 +155,24 @@
   .prose-ai a { color: var(--brand-text); text-decoration: underline; }
 }
 
+/* 3D cell explorer labels (CSS2DRenderer) */
+.cell-label {
+  font: 600 11.5px/1.2 var(--font-sans);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.9);
+  color: #15171c;
+  border: 1px solid rgb(21 23 28 / 0.12);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  white-space: nowrap;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.cell-label[data-level="0"] { font-size: 13px; padding: 4px 10px; }
+.cell-label[data-level="2"] { font-weight: 500; font-size: 11px; border-color: rgb(27 86 62 / 0.45); color: #1b563e; }
+[data-mode="fluorescence"] .cell-label { background: rgb(10 12 18 / 0.78); color: #e8ecf5; border-color: rgb(255 255 255 / 0.18); }
+[data-mode="fluorescence"] .cell-label[data-level="2"] { color: #9fe0bf; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

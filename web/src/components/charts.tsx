@@ -61,7 +61,8 @@ export function TimeSeries({
         <ComposedChart data={data} margin={{ top: 8, right: hasRight ? 8 : 16, bottom: xLabel ? 18 : 4, left: 0 }}>
           <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey={x} type={xType} domain={xDomain ?? ["dataMin", "dataMax"]} tick={{ ...tick, fill: c.axis }} tickLine={false}
-            axisLine={{ stroke: c.line }} label={xLabel ? { value: xLabel, position: "insideBottom", offset: -10, fill: c.axis, fontSize: 11.5 } : undefined} allowDecimals />
+            axisLine={{ stroke: c.line }} label={xLabel ? { value: xLabel, position: "insideBottom", offset: -10, fill: c.axis, fontSize: 11.5 } : undefined} allowDecimals
+            tickFormatter={(v) => (typeof v === "number" ? String(+v.toPrecision(3)) : String(v))} />
           <YAxis yAxisId="left" tick={{ ...tick, fill: c.axis }} tickLine={false} axisLine={false} width={52}
             domain={nice ? nice.domain : yDomain ?? ["auto", "auto"]} ticks={nice?.ticks} allowDataOverflow={false}
             label={yLabel ? { value: yLabel, angle: -90, position: "insideLeft", offset: 12, fill: c.axis, fontSize: 11.5, style: { textAnchor: "middle" } } : undefined} />
@@ -77,7 +78,7 @@ export function TimeSeries({
           <Tooltip
             contentStyle={{ background: c.surface, border: `1px solid ${c.line}`, borderRadius: 8, fontSize: 12, boxShadow: "0 4px 16px rgb(0 0 0 / .08)" }}
             labelStyle={{ color: c.axis }} formatter={(v: number) => (typeof v === "number" ? v.toFixed(Math.abs(v) < 10 ? 3 : 1) : v)}
-            labelFormatter={(v: number) => (xLabel ? `${typeof v === "number" ? v.toFixed(1) : v} ${xLabel}` : String(v))}
+            labelFormatter={(v: number) => (xLabel ? `${typeof v === "number" ? +v.toPrecision(4) : v} ${xLabel}` : String(v))}
           />
           {series.length > 1 && <Legend verticalAlign="top" height={28} iconType="plainline" wrapperStyle={{ fontSize: 12 }} />}
           {series.map((s) =>

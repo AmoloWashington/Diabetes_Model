@@ -3,7 +3,7 @@ import { useTheme } from "@/lib/theme";
 import { Callout, Spinner } from "../ui";
 
 export type ColorBy = "confidence" | "nucleotide" | "chain" | "spectrum";
-export type StyleKind = "auto" | "trace" | "cartoon" | "stick" | "sphere";
+export type StyleKind = "auto" | "trace" | "cartoon" | "stick" | "sphere" | "surface";
 
 // Confidence bins follow the convention popularised by AlphaFold's pLDDT.
 export const CONF_BINS = [
@@ -49,6 +49,10 @@ export function MolViewer({ data, format = "pdb", colorBy = "confidence", style 
         if (kind === "trace") v.setStyle({}, { stick: { radius: 0.35, ...cs }, sphere: { radius: 1.25, ...cs } } as never);
         else if (kind === "cartoon") v.setStyle({}, { cartoon: { ...cs, thickness: 0.6 }, stick: { radius: 0.15, hidden: false, ...cs } } as never);
         else if (kind === "stick") v.setStyle({}, { stick: { radius: 0.25, ...cs } } as never);
+        else if (kind === "surface") {
+          v.setStyle({}, { cartoon: { ...cs, thickness: 0.6 } } as never);
+          v.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.82, ...(colorBy === "spectrum" ? { colorscheme: "spectrum" } : { colorfunc }) } as never);
+        }
         else v.setStyle({}, { sphere: { scale: 0.9, ...cs } } as never);
         if (c1Only && pairs?.length) {
           const byResi = new Map(atoms.map((a) => [a.resi, a]));
@@ -60,6 +64,42 @@ export function MolViewer({ data, format = "pdb", colorBy = "confidence", style 
                 radius: 0.22, color: mode === "dark" ? "#6c717c" : "#b9b3a4", fromCap: 1, toCap: 1,
               } as never);
             }
+          }
+        }
+        const labelStyle = {
+          backgroundColor: mode === "dark" ? "#1a1e24" : "#ffffff", backgroundOpacity: 0.92, fontColor: mode === "dark" ? "#eceef1" : "#15171c",
+          fontSize: 12, borderThickness: 1, borderColor: mode === "dark" ? "#363c46" : "#d3cfc3", inFront: true,
+        };
+        // Hover: residue name, number and chain
+        v.setHoverable({}, true, (atom: Atom & { hoverLabel?: unknown }) => {
+          if (!atom.hoverLabel) atom.hoverLabel = v.addLabel(`${atom.resn.trim()}${atom.resi} · chain ${atom.chain}`, { ...labelStyle, position: { x: atom.x, y: atom.y, z: atom.z } } as never);
+        }, (atom: Atom & { hoverLabel?: unknown }) => {
+          if (atom.hoverLabel) { v.removeLabel(atom.hoverLabel as never); delete atom.hoverLabel; }
+        });
+        // Structural labels for coarse-grained models: ends, helices and hairpin loops
+        if (c1Only) {
+          const byResi = new Map(atoms.map((a) => [a.resi, a]));
+          const resis = [...byResi.keys()].sort((a, b) => a - b);
+          const put = (text: string, a?: Atom) => a && v.addLabel(text, { ...labelStyle, fontSize: 11, position: { x: a.x, y: a.y, z: a.z } } as never);
+          put("5′", byResi.get(resis[0]));
+          put("3′", byResi.get(resis[resis.length - 1]));
+          if (pairs?.length) {
+            const sorted = [...pairs].sort((a, b) => a[0] - b[0]);
+            const stems: [number, number][][] = [];
+            for (const p of sorted) {
+              const last = stems.at(-1)?.at(-1);
+              if (last && p[0] === last[0] + 1 && p[1] === last[1] - 1) stems.at(-1)!.push(p); else stems.push([p]);
+            }
+            const paired = new Set(pairs.flat());
+            stems.forEach((st, k) => {
+              const [i, j] = st[Math.floor(st.length / 2)];
+              const a = byResi.get(i + 1), b = byResi.get(j + 1);
+              if (a && b) v.addLabel(`Helix ${k + 1} · ${st.length} bp`, { ...labelStyle, fontSize: 11, position: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 } } as never);
+              const [ii, jj] = st[st.length - 1];
+              let hairpin = jj - ii > 1;
+              for (let q = ii + 1; q < jj && hairpin; q++) if (paired.has(q)) hairpin = false;
+              if (hairpin) put(`Hairpin loop · ${jj - ii - 1} nt`, byResi.get(Math.round((ii + jj) / 2) + 1));
+            });
           }
         }
         v.zoomTo();

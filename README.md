@@ -70,14 +70,17 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 | | β-cell dynamics | Topp et al., *J Theor Biol* 2000: slow–fast dynamics with fixed points and eigenvalue stability |
 | | Insulin sensitivity | Bergman minimal model (1979): IVGTT simulation and S<sub>I</sub>/S<sub>G</sub>/p₂ estimation with CV% |
 | | Clinical indices | HOMA1, QUICKI, eAG, TyG, BMI, ADA diagnostic thresholds |
-| **Cell & molecular** | Cell theatre | Model-driven animations: β-cell stimulus–secretion coupling, insulin → GLUT4 signalling, INS gene → insulin. Export to WebM video. |
-| | DNA lab | 3D B-DNA built from any sequence, 3-frame translation (NCBI table 1), ORFs, T<sub>m</sub> |
+| | Membrane biophysics | Nernst and Goldman–Hodgkin–Katz potentials with exact SI constants (RT/F = 25.69 mV at 25 °C), V<sub>m</sub> vs K⁺ permeability (the physics of K<sub>ATP</sub> closure), Stokes–Einstein diffusion and ⟨x²⟩ = 2dDt |
+| **Cell & molecular** | 3D cell explorer | Interactive three.js β-cell: nucleus (envelope, pores, nucleolus, chromatin fibres), rough ER with ribosomes, Golgi, mitochondria with cristae, lysosomes, centrosome, microtubules, primary cilium and insulin granules. Labels appear as you zoom closer (whole cell → organelles → sub-structures); clicking a part shows its role and source. Illustrated, fluorescence-style and EM-style rendering, all labelled as rendered models, not micrographs. Granule exocytosis rate follows the meal model's static secretion S = S<sub>b</sub> + β(G − G<sub>b</sub>). |
+| | Cell theatre | Model-driven animations: β-cell stimulus–secretion coupling, insulin → GLUT4 signalling, INS gene → insulin. Export to WebM video. |
+| | DNA lab | 3D B-DNA built from any sequence (phosphates, deoxyribose, purine/pyrimidine slabs, 2 or 3 hydrogen bonds per A–T/G–C pair, major and minor grooves) with zoom labels, 3-frame translation (NCBI table 1), ORFs, T<sub>m</sub> |
 | **RNA structure** | Sequences | Upload/paste FASTA, validation (ACGU, T→U, IUPAC flagged), SQLite storage with SHA-256 de-duplication, ViennaRNA folding (MFE, ensemble, pair probabilities, arc diagram) |
 | | 3D prediction | Template-based modelling from loaded structure datasets; coarse-grained de novo fallback from ViennaRNA structure + A-form restraints; per-residue confidence; PDB export; leave-one-out TM-score benchmark |
-| | Structure viewer | 3Dmol.js (the engine behind py3Dmol): predicted, uploaded and RCSB PDB structures; colour by confidence/nucleotide/chain; TM-score and RMSD comparison; py3Dmol notebook snippet |
+| | Structure viewer | 3Dmol.js (the engine behind py3Dmol): predicted, uploaded and RCSB PDB structures; cartoon, stick, sphere and molecular-surface styles; residue labels on hover; helix and hairpin-loop labels on predicted models; colour by confidence/nucleotide/chain; TM-score and RMSD comparison; py3Dmol notebook snippet |
 | **Data & models** | Dataset explorer | Kaggle import via the official `kagglehub` client (e.g. Stanford RNA 3D Folding), file upload, schema and row browser, RNA analytics, template library |
 | | Diabetes risk model | Symptom classifier with leak-free grouped cross-validation, bootstrap CIs, calibration, exact explanations |
-| **AI** | Research assistant | Claude in a tool-use loop over all engines above. Every tool call is shown for auditing. |
+| **AI** | Research assistant | Claude in a tool-use loop over all engines above, including the biophysics calculators. Answers stream live with a reasoning summary; each tool call and its output appear as it runs. "Ask AI about this" on each page sends that page's current results as context. Conversations are saved in the browser, and equations render with KaTeX. |
+| **Methods** | Model & methods panels | Every model page ends with the governing equations (KaTeX), numerical method, code path and primary reference, mirrored from the backend implementation. |
 
 ### How the RNA 3D confidence works (read this before presenting predictions)
 
@@ -85,7 +88,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 73 automated tests)
+## Validation (enforced by 89 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -97,6 +100,8 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 | Minimal model | S<sub>I</sub> recovery from noise-free data | 5.00e-4 | 5.00e-4 |
 | RNA 3D | TM-score of a rotated copy / random coil | 1 / ≈0 | 1.000 / <0.2 |
 | ViennaRNA | GGGAAAUCCCGCGCAAAGCGC MFE | `(((....)))((((...))))` | identical |
+| Nernst | E<sub>K</sub>, K⁺ 140/5 mM, 37 °C | −89.1 mV (RT/F·ln 28) | −89.1 mV |
+| GHK | Reduces to Nernst for a single permeant ion | exact | exact |
 
 Also tested:
 - mass conservation, and exact equilibrium at basal;
@@ -105,7 +110,7 @@ Also tested:
 - FASTA validation;
 - Kaggle import with a mocked downloader;
 - path-traversal rejection;
-- the AI loop, with a fake client.
+- the AI loop and its streaming endpoint, with a fake client.
 
 ### Data-leakage finding in the original model
 
@@ -118,11 +123,11 @@ cross-validation and reports both numbers.
 ```
 web/        React 19 + TypeScript + Vite + Tailwind CSS 4 · TanStack Query · Recharts · three.js · 3Dmol.js
 backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · kagglehub · Anthropic SDK · SQLite
-  app/physiology/   meal model, β-cell model, minimal model, clinical indices
+  app/physiology/   meal model, β-cell model, minimal model, clinical indices, membrane biophysics
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            73 tests
+  tests/            89 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```
@@ -139,6 +144,7 @@ cd web && npm run typecheck && npm run build
 - Only the healthy-adult meal phenotype uses a published parameter set. The insulin-resistant and type 2 phenotypes are labelled scalings of it.
 - RNA 3D prediction is template-based or coarse-grained. It is not a substitute for experimental structures or for deep-learning structure predictors, and the confidence scores are explained above.
 - The symptom model comes from one hospital population (61.5% positive). It is not a screening test.
+- The 3D cell and the animations are schematic in geometry and counts (a real β-cell holds about 10,000 granules; a subset is drawn). The fluorescence and EM modes are rendering styles, not microscopy data.
 - Animations are schematic in geometry. Their rates come from the models, and their sequence of events from the cited reviews.
 - RCSB PDB and Kaggle downloads need internet access, and Kaggle needs your own token.
 

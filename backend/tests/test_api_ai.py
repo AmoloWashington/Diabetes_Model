@@ -116,7 +116,7 @@ def test_agent_loop_runs_tools_and_returns_grounded_answer():
     assert not reply.tool_calls[0].is_error
     first, second = msgs.calls
     assert first["model"] == settings.claude_model
-    assert first["thinking"] == {"type": "adaptive"}
+    assert first["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert first["output_config"] == {"effort": settings.claude_effort}
     if settings.claude_fallbacks:
         assert first["fallbacks"] == "default"
@@ -165,6 +165,8 @@ def test_every_tool_runs_with_minimal_valid_input(tmp_path, monkeypatch):
         "predict_rna_3d": {"sequence": "GGGCGCAAGCCUAUGCGCUUCGGCGCAUAGGCUUGCGCCC", "method": "denovo"},
         "list_rna_sequences": {},
         "list_datasets": {},
+        "membrane_biophysics": {"K": {"in": 140, "out": 5}},
+        "diffusion_time": {"radius_nm": 2.0, "distance_um": 10},
         "simulate_meal": {"meals": [{"time_min": 0, "carbs_g": 50}], "duration_min": 240},
         "simulate_beta_cell_progression": {"years": 2},
         "simulate_ivgtt": {},
@@ -187,3 +189,79 @@ def test_chat_endpoint_with_fake_client(client, monkeypatch):
     r = client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "hi"}]})
     assert r.status_code == 200
     assert r.json()["text"] == "Hello from the model."
+
+
+# ------------------------------------------------------------ streaming
+
+
+class FakeStream:
+    def __init__(self, events, final):
+        self.events, self.final = events, final
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def __iter__(self):
+        return iter(self.events)
+
+    def get_final_message(self):
+        return self.final
+
+
+class FakeStreamingMessages:
+    def __init__(self, turns):
+        self.turns = list(turns)
+        self.calls = []
+
+    def stream(self, **kw):
+        self.calls.append({**kw, "messages": list(kw["messages"])})
+        events, final = self.turns.pop(0)
+        return FakeStream(events, final)
+
+
+def test_stream_events_text_thinking_and_tools():
+    tu = NS(type="tool_use", id="t1", name="membrane_biophysics", input={})
+    turns = [
+        ([NS(type="thinking", thinking="Need the GHK potential."), NS(type="text", text="Computing… ")],
+         _msg([NS(type="text", text="Computing… "), tu], "tool_use")),
+        ([NS(type="text", text="V_m is "), NS(type="text", text="-67 mV.")],
+         _msg([NS(type="text", text="V_m is -67 mV.")], "end_turn")),
+    ]
+    msgs = FakeStreamingMessages(turns)
+    client = NS(beta=NS(messages=msgs))
+    evs = list(assistant.stream_events([{"role": "user", "content": "Resting potential?"}], client=client,
+                                       context={"page": "Biophysics", "summary": "V_m = -67.3 mV"}))
+    kinds = [e["type"] for e in evs]
+    assert kinds[0] == "thinking"
+    assert "tool_start" in kinds and "tool_result" in kinds
+    assert kinds[-1] == "done"
+    text = "".join(e["text"] for e in evs if e["type"] == "text")
+    assert "V_m is -67 mV." in text
+    assert evs[-1]["text"].endswith("-67 mV.")
+    # page context is attached to the user turn as data
+    first_user = msgs.calls[0]["messages"][0]["content"]
+    assert "Biophysics" in first_user and first_user.endswith("Resting potential?")
+    assert msgs.calls[0]["max_tokens"] == 32000
+
+
+def test_stream_endpoint_sse(client, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    msgs = FakeStreamingMessages([([NS(type="text", text="Hi there.")], _msg([NS(type="text", text="Hi there.")], "end_turn"))])
+    monkeypatch.setattr(assistant, "_client", NS(beta=NS(messages=msgs)))
+    r = client.post("/api/ai/chat/stream", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+    events = [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+    assert events[0] == {"type": "text", "text": "Hi there."}
+    assert events[-1]["type"] == "done"
+
+
+def test_stream_endpoint_unconfigured_emits_error(client, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    monkeypatch.setattr(assistant, "_client", None)
+    r = client.post("/api/ai/chat/stream", json={"messages": [{"role": "user", "content": "hi"}]})
+    events = [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+    assert events[-1]["type"] == "error" and "ANTHROPIC_API_KEY" in events[-1]["message"]

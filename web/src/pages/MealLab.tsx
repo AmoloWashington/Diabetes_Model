@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { Microscope, Play, Rows3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +8,7 @@ import { Badge, Button, Callout, Card, CardHeader, Field, Input, PageHeader, Sel
 import { api, type MealResult } from "@/lib/api";
 import { fmt, rowsOf } from "@/lib/format";
 import { setLastMeal } from "@/lib/simStore";
+import { AskAI } from "@/components/AskAI";
 
 type Pheno = "normal" | "insulin_resistant" | "type2";
 const LABEL: Record<Pheno, string> = { normal: "Healthy adult", insulin_resistant: "Insulin resistant", type2: "Type 2 diabetes" };
@@ -64,7 +66,11 @@ export default function MealLab() {
         eyebrow="Physiology"
         title="Meal simulation"
         description={<>Post-prandial glucose and insulin from the Dalla Man–Rizza–Cobelli (2007) meal model. Only the healthy-adult phenotype uses the published parameter set; the others are labelled scalings of it.</>}
-        actions={<Button icon={<Microscope className="size-4" />} onClick={() => nav("/cells")} disabled={!primary}>Play in Cell theatre</Button>}
+        actions={<>
+          <AskAI page="Meal simulation" question="Interpret this meal simulation: what drives the glucose and insulin curves, and how do the phenotypes differ mechanistically?"
+            summary={results.map((r) => `${r.phenotype.label}: peak glucose ${r.summary.peak_glucose_mg_dl.toFixed(0)} mg/dl at ${r.summary.time_to_peak_min.toFixed(0)} min, 2-h glucose ${r.summary.glucose_2h_mg_dl?.toFixed(0) ?? "n/a"} mg/dl, peak insulin ${r.summary.peak_insulin_pmol_l.toFixed(0)} pmol/l, time in range ${r.summary.time_in_range_70_180_pct.toFixed(0)}%, renal excretion ${r.summary.renal_excretion_mg_per_kg.toFixed(1)} mg/kg`).join("\n") + (results.length ? `\nMeals: carbs ${f.carbs1} g at ${f.time1} min${f.carbs2 ? `, ${f.carbs2} g at ${f.time2} min` : ""}; body weight ${f.bw} kg.` : "")} />
+          <Button icon={<Microscope className="size-4" />} onClick={() => nav("/cells")} disabled={!primary}>Play in Cell theatre</Button>
+        </>}
       />
       <div className="grid xl:grid-cols-[320px_1fr] gap-5 items-start">
         <Card className="xl:sticky xl:top-8">
@@ -151,6 +157,7 @@ export default function MealLab() {
           )}
         </div>
       </div>
+      <div className="mt-6"><MethodsPanel id="meal" /></div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity, BookOpen, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
-  Microscope, Moon, Orbit, Sun, TestTubes, Timer, X,
+  Microscope, Moon, Orbit, ScanSearch, Sun, TestTubes, Timer, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -19,11 +19,13 @@ const NAV: { group: string | null; items: Item[] }[] = [
       { to: "/physiology/beta-cell", label: "β-cell dynamics", icon: <Timer /> },
       { to: "/physiology/minimal-model", label: "Insulin sensitivity", icon: <FlaskConical /> },
       { to: "/physiology/clinical", label: "Clinical indices", icon: <HeartPulse /> },
+      { to: "/physiology/biophysics", label: "Membrane biophysics", icon: <Zap /> },
     ],
   },
   {
     group: "Cell & molecular",
     items: [
+      { to: "/cells/explorer", label: "3D cell explorer", icon: <ScanSearch /> },
       { to: "/cells", label: "Cell theatre", icon: <Microscope /> },
       { to: "/dna", label: "DNA lab", icon: <Dna /> },
     ],
@@ -89,7 +91,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               {g.items.map((it) => (
                 <li key={it.to}>
                   <NavLink
-                    to={it.to} end={it.to === "/"} onClick={onNavigate}
+                    to={it.to} end={it.to === "/" || it.to === "/cells"} onClick={onNavigate}
                     className={({ isActive }) => cx(
                       "group flex items-center gap-2.5 rounded-lg px-2 h-8 text-[13.5px] transition-colors [&_svg]:size-4 [&_svg]:shrink-0",
                       isActive ? "bg-surface text-ink font-medium shadow-card border border-line" : "text-ink-2 hover:bg-surface-3 border border-transparent",
