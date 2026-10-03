@@ -14,7 +14,9 @@ import numpy as np
 from pydantic import ValidationError
 
 from .. import services
-from ..schemas import BetaCellRequest, IndicesRequest, IVGTTRequest, MealSimRequest, RiskRequest
+from ..schemas import (
+    BetaCellRequest, DiffusionRequest, IndicesRequest, IVGTTRequest, MealSimRequest, MembraneRequest, RiskRequest,
+)
 
 _NUM = {"type": "number"}
 
@@ -72,6 +74,18 @@ def _model_card(_args: dict) -> dict:
 
 def _references(_args: dict) -> dict:
     return {"references": services.REFERENCES}
+
+
+def _membrane(args: dict) -> dict:
+    out = services.membrane(MembraneRequest.model_validate(args))
+    out["pk_sweep"] = out["pk_sweep"][::7]
+    return out
+
+
+def _diffusion(args: dict) -> dict:
+    out = services.diffusion(DiffusionRequest.model_validate(args))
+    out["rms_displacement_um"] = out["rms_displacement_um"][::10]
+    return out
 
 
 def _rna_seq(args: dict) -> str:
@@ -227,6 +241,35 @@ TOOLS: list[dict[str, Any]] = [
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
+        "name": "membrane_biophysics",
+        "description": (
+            "Compute Nernst equilibrium potentials (K+, Na+, Cl-, Ca2+), the Goldman-Hodgkin-Katz membrane potential "
+            "from relative permeabilities, driving forces, and V_m as K+ permeability falls (e.g. K_ATP closure). "
+            "Concentrations in mM; defaults are typical mammalian values (Alberts) and squid-axon permeability ratios."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "temperature_c": _NUM, "p_K": _NUM, "p_Na": _NUM, "p_Cl": _NUM,
+                "K": {"type": "object", "properties": {"in": {"type": "number"}, "out": {"type": "number"}}, "required": ["in", "out"]}, "Na": {"type": "object", "properties": {"in": {"type": "number"}, "out": {"type": "number"}}, "required": ["in", "out"]}, "Cl": {"type": "object", "properties": {"in": {"type": "number"}, "out": {"type": "number"}}, "required": ["in", "out"]}, "Ca": {"type": "object", "properties": {"in": {"type": "number"}, "out": {"type": "number"}}, "required": ["in", "out"]},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "diffusion_time",
+        "description": (
+            "Stokes-Einstein diffusion coefficient for a sphere of hydrodynamic radius (nm) and the characteristic "
+            "time t = L^2/(2dD) to diffuse a distance L (um) in d dimensions. Default viscosity: water at 37 C."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"radius_nm": _NUM, "distance_um": _NUM, "temperature_c": _NUM, "viscosity_mpa_s": _NUM,
+                           "dims": {"type": "integer"}},
+            "required": ["radius_nm", "distance_um"],
+        },
+    },
+    {
         "name": "fold_rna",
         "description": (
             "Predict RNA secondary structure with ViennaRNA (Turner 2004 energies): MFE structure and energy, "
@@ -279,6 +322,8 @@ _DISPATCH: dict[str, Callable[[dict], dict]] = {
     "predict_symptom_risk": _risk,
     "get_risk_model_card": _model_card,
     "get_references": _references,
+    "membrane_biophysics": _membrane,
+    "diffusion_time": _diffusion,
     "fold_rna": _fold_rna,
     "predict_rna_3d": _predict_rna,
     "list_rna_sequences": _list_rna,

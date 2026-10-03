@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { FlaskConical, Play, Sigma } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { TimeSeries, useChartColors } from "@/components/charts";
@@ -103,6 +104,7 @@ export default function MinimalModel() {
           )}
         </Card>
       </div>
+      <div className="mt-6"><MethodsPanel id="minimal" /></div>
     </div>
   );
 }

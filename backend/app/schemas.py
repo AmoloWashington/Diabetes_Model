@@ -120,8 +120,14 @@ class ChatMessage(_Strict):
     content: str = Field(min_length=1, max_length=8000)
 
 
+class PageContext(_Strict):
+    page: str = Field(max_length=80)
+    summary: str = Field(max_length=6000)
+
+
 class ChatRequest(_Strict):
     messages: list[ChatMessage] = Field(min_length=1, max_length=40)
+    context: PageContext | None = None
 
     @model_validator(mode="after")
     def _alternation(self):
@@ -133,3 +139,28 @@ class ChatRequest(_Strict):
             if a.role == b.role:
                 raise ValueError("Messages must alternate between user and assistant")
         return self
+
+
+class IonConc(_Strict):
+    inside: float = Field(gt=0, le=1000, alias="in")
+    outside: float = Field(gt=0, le=1000, alias="out")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class MembraneRequest(_Strict):
+    temperature_c: float = Field(37.0, ge=-20, le=60)
+    K: IonConc | None = None
+    Na: IonConc | None = None
+    Cl: IonConc | None = None
+    Ca: IonConc | None = None
+    p_K: float = Field(1.0, ge=0, le=100)
+    p_Na: float = Field(0.04, ge=0, le=100)
+    p_Cl: float = Field(0.45, ge=0, le=100)
+
+
+class DiffusionRequest(_Strict):
+    radius_nm: float = Field(gt=0, le=10000)
+    distance_um: float = Field(gt=0, le=100000)
+    temperature_c: float = Field(37.0, ge=-20, le=60)
+    viscosity_mpa_s: float = Field(0.69, gt=0, le=1e6)
+    dims: int = Field(3, ge=1, le=3)

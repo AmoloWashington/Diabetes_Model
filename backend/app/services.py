@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from .ml import risk_model
 from .molecular import dna
-from .physiology import beta_cell, indices, minimal_model, uva_padova
+from .physiology import beta_cell, biophysics, indices, minimal_model, uva_padova
 from .schemas import (
-    BetaCellRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest, MealSimRequest, RiskRequest,
+    BetaCellRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest, MealSimRequest,
+    MembraneRequest, RiskRequest,
 )
 
 REFERENCES = [
@@ -53,18 +54,37 @@ REFERENCES = [
     {"id": "rorsman2018", "used_for": "Beta-cell stimulus-secretion coupling (animation)",
      "citation": "Rorsman P, Ashcroft FM. Pancreatic beta-cell electrical activity and insulin secretion: of mice "
                  "and men. Physiol Rev. 2018;98(1):117-214."},
+    {"id": "rorsman2003", "used_for": "Insulin granule numbers and pools (3D cell explorer)",
+     "citation": "Rorsman P, Renström E. Insulin granule dynamics in pancreatic beta cells. Diabetologia. "
+                 "2003;46(8):1029-1045.", "doi": "10.1007/s00125-003-1153-1"},
     {"id": "saltiel2001", "used_for": "Insulin receptor signalling and GLUT4 translocation (animation)",
      "citation": "Saltiel AR, Kahn CR. Insulin signalling and the regulation of glucose and lipid metabolism. "
                  "Nature. 2001;414(6865):799-806."},
     {"id": "lorenz2011", "used_for": "RNA secondary structure (MFE, partition function, pair probabilities)",
      "citation": "Lorenz R, Bernhart SH, Hoener zu Siederdissen C, Tafer H, Flamm C, Stadler PF, Hofacker IL. "
                  "ViennaRNA Package 2.0. Algorithms Mol Biol. 2011;6:26.", "doi": "10.1186/1748-7188-6-26"},
+    {"id": "mccaskill1990", "used_for": "RNA partition function and base-pair probabilities",
+     "citation": "McCaskill JS. The equilibrium partition function and base pair binding probabilities for RNA "
+                 "secondary structure. Biopolymers. 1990;29(6-7):1105-1119."},
+    {"id": "kabsch1976", "used_for": "Optimal superposition (RMSD, TM-score)",
+     "citation": "Kabsch W. A solution for the best rotation to relate two sets of vectors. Acta Cryst A. "
+                 "1976;32(5):922-923."},
     {"id": "zhang2022", "used_for": "TM-score d0 for RNA structure comparison",
      "citation": "Zhang C, Shine M, Pyle AM, Zhang Y. US-align: universal structure alignments of proteins, "
                  "nucleic acids, and macromolecular complexes. Nat Methods. 2022;19:1109-1115."},
     {"id": "rego2015", "used_for": "3D molecular viewer (3Dmol.js; py3Dmol is its Python wrapper)",
      "citation": "Rego N, Koes D. 3Dmol.js: molecular visualization with WebGL. Bioinformatics. "
                  "2015;31(8):1322-1324.", "doi": "10.1093/bioinformatics/btu829"},
+    {"id": "goldman1943", "used_for": "GHK voltage equation",
+     "citation": "Goldman DE. Potential, impedance, and rectification in membranes. J Gen Physiol. 1943;27(1):37-60."},
+    {"id": "hodgkin1949", "used_for": "GHK voltage equation; squid-axon permeability ratios",
+     "citation": "Hodgkin AL, Katz B. The effect of sodium ions on the electrical activity of the giant axon of the "
+                 "squid. J Physiol. 1949;108(1):37-77."},
+    {"id": "einstein1905", "used_for": "Diffusion (Stokes-Einstein relation, mean-squared displacement)",
+     "citation": "Einstein A. Über die von der molekularkinetischen Theorie der Wärme geforderte Bewegung von in "
+                 "ruhenden Flüssigkeiten suspendierten Teilchen. Ann Phys. 1905;322(8):549-560."},
+    {"id": "alberts", "used_for": "Typical mammalian ion concentrations; cell biology background",
+     "citation": "Alberts B, et al. Molecular Biology of the Cell. Garland Science / W. W. Norton (current edition)."},
     {"id": "watson1953", "used_for": "DNA double helix",
      "citation": "Watson JD, Crick FHC. Molecular structure of nucleic acids: a structure for deoxyribose nucleic "
                  "acid. Nature. 1953;171(4356):737-738."},
@@ -176,3 +196,19 @@ def risk_model_card() -> dict:
 
 def dna_analysis(seq: str) -> dict:
     return dna.analyze(seq)
+
+
+def membrane(req: MembraneRequest) -> dict:
+    conc = {k: dict(v) for k, v in biophysics.DEFAULT_CONC_MM.items()}
+    for ion in ("K", "Na", "Cl", "Ca"):
+        v = getattr(req, ion)
+        if v is not None:
+            conc[ion] = {**conc[ion], "in": v.inside, "out": v.outside}
+    out = biophysics.membrane_analysis(conc, {"K": req.p_K, "Na": req.p_Na, "Cl": req.p_Cl}, req.temperature_c)
+    out["concentrations_mm"] = {k: {"in": v["in"], "out": v["out"]} for k, v in conc.items()}
+    out["permeabilities"] = {"K": req.p_K, "Na": req.p_Na, "Cl": req.p_Cl}
+    return out
+
+
+def diffusion(req: DiffusionRequest) -> dict:
+    return biophysics.diffusion_analysis(req.radius_nm, req.distance_um, req.temperature_c, req.viscosity_mpa_s, req.dims)

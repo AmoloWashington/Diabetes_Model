@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { Cpu, FileUp, Plus, Search, TestTubes, Trash2, Wand2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -178,6 +179,7 @@ export default function RnaSequences() {
         {sel && <DetailPanel key={sel} id={sel} onClose={() => setSel(null)} />}
       </div>
       <p className="mt-4 text-[12px] text-faint">Sequences are stored in a local SQLite database in the server's data directory.</p>
+      <div className="mt-6"><MethodsPanel id="rnafold" /></div>
     </div>
   );
 }

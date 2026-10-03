@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { Bars, ChartCard, TimeSeries, useChartColors } from "@/components/charts";
@@ -137,6 +138,7 @@ export default function RiskModel() {
           </Card>
         </div>
       )}
+      <div className="mt-6"><MethodsPanel id="risk" /></div>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { Play, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ChartCard, TimeSeries, useChartColors } from "@/components/charts";
 import { Badge, Button, Callout, Card, CardHeader, PageHeader, Slider, Table, useToast } from "@/components/ui";
 import { api, type BetaCellResult } from "@/lib/api";
 import { fmt, rowsOf } from "@/lib/format";
+import { AskAI } from "@/components/AskAI";
 
 export default function BetaCell() {
   const toast = useToast();
@@ -37,6 +39,8 @@ export default function BetaCell() {
       <PageHeader
         eyebrow="Physiology"
         title="β-cell mass dynamics"
+        actions={<AskAI page="β-cell dynamics" question="Explain this β-cell mass simulation and the stability of its fixed points."
+          summary={r ? `Scenario: S_I falls to ${p.si_final_fraction} of normal over ${p.si_decline_years} years (simulated ${p.years} years, sigma x${p.sigma_scale}, d0 x${p.d0_scale}). Outcome: ${r.outcome} Final glucose ${r.glucose_mg_dl.at(-1)?.toFixed(1)} mg/dl, beta-cell mass ${r.beta_cell_mass_mg.at(-1)?.toFixed(1)} mg. Fixed points: ${r.final_fixed_points.map((fp) => `${fp.label} G=${fp.glucose_mg_dl.toFixed(0)} beta=${fp.beta_cell_mass_mg.toFixed(0)} (${fp.stability})`).join("; ")}.` : ""} />}
         description={<>Topp et al. (J Theor Biol 2000): dG/dt = R₀ − (E<sub>G0</sub> + S<sub>I</sub>I)G · dI/dt = βσG²/(α+G²) − kI · dβ/dt = (−d₀ + r₁G − r₂G²)β, in days.</>}
       />
       <div className="grid xl:grid-cols-[320px_1fr] gap-5 items-start">
@@ -89,6 +93,7 @@ export default function BetaCell() {
           )}
         </div>
       </div>
+      <div className="mt-6"><MethodsPanel id="betacell" /></div>
     </div>
   );
 }

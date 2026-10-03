@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { MethodsPanel } from "@/components/Methods";
 import { Calculator } from "lucide-react";
 import { useState } from "react";
 import { Badge, Button, Callout, Card, CardHeader, Empty, Field, Input, PageHeader, Stat, Table, useToast } from "@/components/ui";
@@ -89,6 +90,7 @@ export default function Clinical() {
           )}
         </div>
       </div>
+      <div className="mt-6"><MethodsPanel id="clinical" /></div>
     </div>
   );
 }
