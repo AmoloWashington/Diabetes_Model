@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from .molecular import dna
-from .physiology import beta_cell, biophysics, indices, minimal_model, uva_padova
+from .physiology import beta_cell, biophysics, cgm, indices, minimal_model, uva_padova
 from .schemas import (
-    BetaCellRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest, MealSimRequest,
-    MembraneRequest, RiskRequest,
+    BetaCellRequest, CgmAnalyzeRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    MealSimRequest, MembraneRequest, RiskRequest,
 )
 
 REFERENCES = [
@@ -53,6 +53,30 @@ REFERENCES = [
     {"id": "rorsman2018", "used_for": "Beta-cell stimulus-secretion coupling (animation)",
      "citation": "Rorsman P, Ashcroft FM. Pancreatic beta-cell electrical activity and insulin secretion: of mice "
                  "and men. Physiol Rev. 2018;98(1):117-214."},
+    {"id": "battelino2019", "used_for": "CGM metrics, glucose ranges and targets (time in range)",
+     "citation": "Battelino T, et al. Clinical targets for continuous glucose monitoring data interpretation: "
+                 "recommendations from the international consensus on time in range. Diabetes Care. 2019;42(8):1593-1603."},
+    {"id": "bergenstal2018", "used_for": "Glucose management indicator (GMI) from mean CGM glucose",
+     "citation": "Bergenstal RM, et al. Glucose Management Indicator (GMI): a new term for estimating A1C from "
+                 "continuous glucose monitoring. Diabetes Care. 2018;41(11):2275-2280."},
+    {"id": "gloyn2004", "used_for": "KCNJ11 (Kir6.2) activating mutations cause permanent neonatal diabetes",
+     "citation": "Gloyn AL, et al. Activating mutations in the gene encoding the ATP-sensitive potassium-channel "
+                 "subunit Kir6.2 and permanent neonatal diabetes. N Engl J Med. 2004;350(18):1838-1849."},
+    {"id": "pearson2006", "used_for": "Switching KCNJ11 neonatal diabetes from insulin to sulfonylureas",
+     "citation": "Pearson ER, et al. Switching from insulin to oral sulfonylureas in patients with diabetes due "
+                 "to Kir6.2 mutations. N Engl J Med. 2006;355(5):467-477."},
+    {"id": "pearson2003", "used_for": "HNF1A-MODY sensitivity to sulfonylureas",
+     "citation": "Pearson ER, et al. Genetic cause of hyperglycaemia and response to treatment in diabetes. "
+                 "Lancet. 2003;362(9392):1275-1281."},
+    {"id": "steele2014", "used_for": "GCK-MODY: mild stable hyperglycaemia with low complication prevalence",
+     "citation": "Steele AM, et al. Prevalence of vascular complications among patients with glucokinase "
+                 "mutations and prolonged, mild hyperglycemia. JAMA. 2014;311(3):279-286."},
+    {"id": "hattersley2018", "used_for": "Diagnosis and management of monogenic diabetes (ISPAD guideline)",
+     "citation": "Hattersley AT, et al. ISPAD Clinical Practice Consensus Guidelines 2018: the diagnosis and "
+                 "management of monogenic diabetes in children and adolescents. Pediatr Diabetes. 2018;19(Suppl 27):47-63."},
+    {"id": "shields2012", "used_for": "MODY probability calculator (clinical prediction model)",
+     "citation": "Shields BM, et al. The development and validation of a clinical prediction model to determine "
+                 "the probability of MODY in patients with young-onset diabetes. Diabetologia. 2012;55(5):1265-1272."},
     {"id": "rorsman2003", "used_for": "Insulin granule numbers and pools (3D cell explorer)",
      "citation": "Rorsman P, Renström E. Insulin granule dynamics in pancreatic beta cells. Diabetologia. "
                  "2003;46(8):1029-1045.", "doi": "10.1007/s00125-003-1153-1"},
@@ -215,3 +239,26 @@ def membrane(req: MembraneRequest) -> dict:
 
 def diffusion(req: DiffusionRequest) -> dict:
     return biophysics.diffusion_analysis(req.radius_nm, req.distance_um, req.temperature_c, req.viscosity_mpa_s, req.dims)
+
+
+def cgm_analyze(req: CgmAnalyzeRequest) -> dict:
+    meta = {}
+    if req.csv is not None:
+        minutes, g, meta = cgm.parse_csv(req.csv)
+        start_tod = meta.pop("start_minute_of_day")
+    else:
+        minutes = [p.minute for p in req.points]
+        g = [p.g for p in req.points]
+        start_tod = req.start_minute_of_day
+    out = cgm.analyze(minutes, g, req.unit, start_tod)
+    out["source"] = meta or {"points": len(g)}
+    return out
+
+
+def cgm_sample(phenotype: str, days: int) -> dict:
+    t, g = cgm.synthetic_sample(phenotype, days)
+    out = cgm.analyze(t, g, "mg/dl", 0.0)
+    out["source"] = {"synthetic": True, "phenotype": phenotype,
+                     "description": "Synthetic trace from the Dalla Man meal model (3 randomised meals/day, 5-min "
+                                    "samples, 5% noise). Demonstration data, not from a person."}
+    return out

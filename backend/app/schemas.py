@@ -164,3 +164,21 @@ class DiffusionRequest(_Strict):
     temperature_c: float = Field(37.0, ge=-20, le=60)
     viscosity_mpa_s: float = Field(0.69, gt=0, le=1e6)
     dims: int = Field(3, ge=1, le=3)
+
+
+class CgmPoint(_Strict):
+    minute: float = Field(ge=0, le=60 * 24 * 120)
+    g: float = Field(gt=0, le=1000)
+
+
+class CgmAnalyzeRequest(_Strict):
+    csv: str | None = Field(None, max_length=15_000_000)
+    points: list[CgmPoint] | None = Field(None, max_length=200_000)
+    unit: Literal["auto", "mg/dl", "mmol/l"] = "auto"
+    start_minute_of_day: float = Field(0.0, ge=0, lt=1440)
+
+    @model_validator(mode="after")
+    def _one_source(self):
+        if (self.csv is None) == (self.points is None):
+            raise ValueError("Provide either csv text or points, not both")
+        return self

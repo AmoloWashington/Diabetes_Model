@@ -206,4 +206,24 @@ export const METHODS: Record<string, Methods> = {
     ],
     numerics: "Closed form.",
   },
+  cgm: {
+    title: "Continuous glucose monitoring metrics",
+    source: "Battelino T et al. Diabetes Care 2019;42:1593–1603 · Bergenstal RM et al. Diabetes Care 2018;41:2275–2280",
+    code: "backend/app/physiology/cgm.py",
+    sections: [
+      {
+        title: "Ranges and summary statistics (glucose g in mg/dl)",
+        eqs: [
+          String.raw`	ext{TIR} = rac{\#\{70 \le g_i \le 180\}}{N},\quad 	ext{TBR}_{<70},\ 	ext{TBR}_{<54},\ 	ext{TAR}_{>180},\ 	ext{TAR}_{>250}\ 	ext{analogously}`,
+          String.raw`ar g = rac{1}{N}\sum_i g_i,\qquad \mathrm{CV} = rac{s}{ar g}	imes 100\%,\qquad \mathrm{GMI}\,(\%) = 3.31 + 0.02392\,ar g`,
+        ],
+        text: "Targets for most adults with type 1 or type 2 diabetes: TIR > 70%, below 70 mg/dl < 4%, below 54 mg/dl < 1%, above 180 mg/dl < 25%, above 250 mg/dl < 5%, CV ≤ 36%. At least 14 days with ≥ 70% of possible readings are recommended. Fractions of readings equal fractions of time when sampling is regular.",
+      },
+      {
+        title: "Ambulatory glucose profile",
+        text: "All readings are grouped into 30-minute bins of the day and the 5th, 25th, 50th, 75th and 95th percentiles are shown, without smoothing. Values in mmol/l are converted with 1 mmol/l = 18.016 mg/dl.",
+      },
+    ],
+    numerics: "Closed form on the uploaded readings. Units are detected from the median (below 35 is taken as mmol/l) unless chosen explicitly.",
+  },
 };

@@ -333,6 +333,7 @@ class MealSimulation:
     phenotype: Phenotype
     meals: list[Meal] = field(default_factory=list)
     body_weight: float = 78.0
+    x_end: np.ndarray | None = None  # final state vector, for chaining simulations
 
 
 def simulate_meals(
@@ -345,6 +346,7 @@ def simulate_meals(
     insulin_sensitivity: float | None = None,
     beta_cell_function: float | None = None,
     dt_min: float = 1.0,
+    initial_x: np.ndarray | None = None,
 ) -> MealSimulation:
     """Simulate plasma glucose and insulin for a meal schedule.
 
@@ -371,7 +373,8 @@ def simulate_meals(
     ctx = _Ctx(p=p, bs=bs, BW=body_weight)
 
     t_out = np.arange(0.0, duration_min + 1e-9, dt_min)
-    x = initial_state(p, bs)
+    # initial_x continues a previous simulation (same parameters); default is the basal steady state
+    x = initial_state(p, bs) if initial_x is None else np.array(initial_x, dtype=float, copy=True)
     events = sorted(meals, key=lambda m: m.time_min)
     # Group meals at the same instant
     boundaries = sorted({0.0, *[m.time_min for m in events], duration_min})
@@ -406,7 +409,7 @@ def simulate_meals(
     return MealSimulation(
         t=t, G=fl["G"], I=fl["I"], Ra=fl["Ra"], EGP=fl["EGP"], Uid=fl["Uid"],
         S=fl["S"], E=fl["E"], basal=bs, params=p, phenotype=ph,
-        meals=list(events), body_weight=body_weight,
+        meals=list(events), body_weight=body_weight, x_end=x.copy(),
     )
 
 

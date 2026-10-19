@@ -71,9 +71,11 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 | | β-cell dynamics | Topp et al., *J Theor Biol* 2000: slow–fast dynamics with fixed points and eigenvalue stability |
 | | Insulin sensitivity | Bergman minimal model (1979): IVGTT simulation and S<sub>I</sub>/S<sub>G</sub>/p₂ estimation with CV% |
 | | Clinical indices | HOMA1, QUICKI, eAG, TyG, BMI, ADA diagnostic thresholds |
+| | Glucose data (CGM) | Upload a continuous glucose monitor CSV (generic, or exports with metadata lines such as LibreView): time in ranges, CV, GMI (Bergenstal 2018) and the ambulatory glucose profile, checked against the international consensus targets (Battelino 2019); mg/dl or mmol/l; synthetic 14-day samples from the meal model |
 | | Membrane biophysics | Nernst and Goldman–Hodgkin–Katz potentials with exact SI constants (RT/F = 25.69 mV at 25 °C), V<sub>m</sub> vs K⁺ permeability (the physics of K<sub>ATP</sub> closure), Stokes–Einstein diffusion and ⟨x²⟩ = 2dDt |
 | **Cell & molecular** | 3D cell explorer | Interactive three.js β-cell: nucleus (envelope, pores, nucleolus, chromatin fibres), rough ER with ribosomes, Golgi, mitochondria with cristae, lysosomes, centrosome, microtubules, primary cilium and insulin granules. Labels appear as you zoom closer (whole cell → organelles → sub-structures); clicking a part shows its role and source. Illustrated, fluorescence-style and EM-style rendering, all labelled as rendered models, not micrographs. Granule exocytosis rate follows the meal model's static secretion S = S<sub>b</sub> + β(G − G<sub>b</sub>). |
 | | Cell theatre | Model-driven animations: β-cell stimulus–secretion coupling, insulin → GLUT4 signalling, INS gene → insulin. Export to WebM video. |
+| | Monogenic diabetes | Gene → channel → cell: KCNJ11/K<sub>ATP</sub> scenarios computed with the GHK engine (normal, activating mutation, sulfonylurea), a GCK-MODY meal-model illustration, and a sourced table of the main genes (KCNJ11, ABCC8, GCK, HNF1A, HNF4A, INS). Educational, not diagnostic |
 | | DNA lab | 3D B-DNA built from any sequence (phosphates, deoxyribose, purine/pyrimidine slabs, 2 or 3 hydrogen bonds per A–T/G–C pair, major and minor grooves) with zoom labels, 3-frame translation (NCBI table 1), ORFs, T<sub>m</sub> |
 | **RNA structure** | Sequences | Upload/paste FASTA, validation (ACGU, T→U, IUPAC flagged), SQLite storage with SHA-256 de-duplication, ViennaRNA folding (MFE, ensemble, pair probabilities, arc diagram) |
 | | 3D prediction | Template-based modelling from loaded structure datasets; coarse-grained de novo fallback from ViennaRNA structure + A-form restraints; per-residue confidence; PDB export; leave-one-out TM-score benchmark |
@@ -89,7 +91,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 89 automated tests)
+## Validation (enforced by 99 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -124,11 +126,11 @@ cross-validation and reports both numbers.
 ```
 web/        React 19 + TypeScript + Vite + Tailwind CSS 4 · TanStack Query · Recharts · three.js · 3Dmol.js
 backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · kagglehub · Anthropic SDK · SQLite
-  app/physiology/   meal model, β-cell model, minimal model, clinical indices, membrane biophysics
+  app/physiology/   meal model, β-cell model, minimal model, clinical indices, membrane biophysics, CGM metrics
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            89 tests
+  tests/            99 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```
