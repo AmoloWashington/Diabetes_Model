@@ -44,8 +44,13 @@ def _warm_risk_model(delay_s: float = 10.0) -> None:
 
 
 def _risk_model_ready() -> bool:
-    rm = sys.modules.get("app.ml.risk_model")
-    return bool(rm and rm.is_ready())
+    # The warm-up thread may be importing the module right now; a partially initialised
+    # module has no is_ready yet, which simply means "not ready".
+    is_ready = getattr(sys.modules.get("app.ml.risk_model"), "is_ready", None)
+    try:
+        return bool(is_ready and is_ready())
+    except Exception:
+        return False
 
 
 @asynccontextmanager
@@ -123,7 +128,6 @@ def health() -> dict:
         "status": "ok",
         "risk_model_ready": _risk_model_ready(),
         "ai_configured": settings.ai_configured,
-        "ai_model": settings.claude_model if settings.ai_configured else None,
     }
 
 
@@ -226,8 +230,8 @@ def dna_analyze(req: DNARequest) -> dict:
 
 @app.get("/api/ai/status")
 def ai_status() -> dict:
-    return {"configured": settings.ai_configured, "model": settings.claude_model,
-            "effort": settings.claude_effort, "tools": assistant.tool_schema_summary()}
+    # The model name is server configuration and is not exposed to visitors.
+    return {"configured": settings.ai_configured, "tools": assistant.tool_schema_summary()}
 
 
 @app.post("/api/ai/chat")

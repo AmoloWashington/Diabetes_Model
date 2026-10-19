@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import {
   Activity, BookOpen, ChartSpline, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
   Microscope, Moon, Orbit, Pill, ScanSearch, Sigma, Sun, TestTubes, Timer, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { api, type Health } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { cx } from "./ui";
 
@@ -66,22 +64,8 @@ function Logo() {
   );
 }
 
-function StatusRow({ label, ok, detail }: { label: string; ok: boolean | undefined; detail?: string }) {
-  return (
-    <div className="flex items-center justify-between text-[12px]">
-      <span className="text-muted">{label}</span>
-      <span className="flex items-center gap-1.5 text-ink-2">
-        <span className={cx("size-1.5 rounded-full", ok === undefined ? "bg-faint" : ok ? "bg-ok" : "bg-warn")} />
-        {detail ?? (ok === undefined ? "…" : ok ? "Ready" : "Off")}
-      </span>
-    </div>
-  );
-}
-
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { mode, toggle } = useTheme();
-  const health = useQuery({ queryKey: ["health"], queryFn: () => api.get<Health>("/api/health"), refetchInterval: 15000 });
-  const kaggle = useQuery({ queryKey: ["kaggle-status"], queryFn: () => api.get<{ configured: boolean }>("/api/datasets/kaggle/status") });
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 pt-5 pb-4"><Logo /></div>
@@ -113,10 +97,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
       <div className="border-t border-line px-4 py-3.5 flex flex-col gap-1.5">
-        <StatusRow label="API" ok={health.isError ? false : health.data ? true : undefined} detail={health.isError ? "Offline" : undefined} />
-        <StatusRow label="AI assistant" ok={health.data?.ai_configured} detail={health.data ? (health.data.ai_configured ? health.data.ai_model ?? "Ready" : "No key") : undefined} />
-        <StatusRow label="Kaggle" ok={kaggle.data?.configured} detail={kaggle.data ? (kaggle.data.configured ? "Connected" : "No token") : undefined} />
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between">
           <NavLink to="/references" onClick={onNavigate} className="flex items-center gap-1.5 text-[12px] text-muted hover:text-ink">
             <BookOpen className="size-3.5" /> References
           </NavLink>
