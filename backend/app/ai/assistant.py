@@ -131,7 +131,7 @@ def _translate_api_error(e: Exception) -> Exception:
     if isinstance(e, anthropic.PermissionDeniedError):
         return AssistantUnavailable("The API key lacks permission for this model (403).")
     if isinstance(e, anthropic.NotFoundError):
-        return AssistantError(f"Model {settings.claude_model!r} not found (404).", 502)
+        return AssistantError("The configured model was not found (404). Check CLAUDE_MODEL on the server.", 502)
     if isinstance(e, anthropic.RateLimitError):
         return AssistantError("Anthropic API rate limit reached; retry shortly.", 429)
     if isinstance(e, anthropic.BadRequestError):
@@ -258,6 +258,8 @@ def stream_events(history: list[dict], client=None, context: dict | None = None)
             if ev["type"] == "tool_result":
                 out = ev["output"]
                 ev = {**ev, "output": out[:1500] + ("..." if len(out) > 1500 else "")}
+            elif ev["type"] == "done":
+                ev = {k: v for k, v in ev.items() if k != "model"}  # do not expose the model name
             yield ev
     except (AssistantUnavailable, AssistantError) as e:
         yield {"type": "error", "message": str(e)}
@@ -266,7 +268,6 @@ def stream_events(history: list[dict], client=None, context: dict | None = None)
 def reply_to_dict(r: AssistantReply) -> dict:
     return {
         "text": r.text,
-        "model": r.model,
         "stop_reason": r.stop_reason,
         "usage": r.usage,
         "tool_calls": [

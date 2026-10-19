@@ -43,7 +43,7 @@ export const api = {
 
 // ------------------------------------------------------------------ types
 
-export interface Health { status: string; risk_model_ready: boolean; ai_configured: boolean; ai_model: string | null }
+export interface Health { status: string; risk_model_ready: boolean; ai_configured: boolean }
 
 export interface MealSeries {
   t_min: number[]; glucose_mg_dl: number[]; insulin_pmol_l: number[]; ra_mg_kg_min: number[];

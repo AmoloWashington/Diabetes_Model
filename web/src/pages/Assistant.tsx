@@ -21,7 +21,7 @@ type StreamEvent =
   | { type: "text"; text: string } | { type: "thinking"; text: string }
   | { type: "tool_start"; name: string; input: unknown }
   | { type: "tool_result"; name: string; is_error: boolean; output: string }
-  | { type: "done"; model: string; usage: { input_tokens: number; output_tokens: number } }
+  | { type: "done"; usage: { input_tokens: number; output_tokens: number } }
   | { type: "error"; message: string };
 
 async function* sse(res: Response): AsyncGenerator<StreamEvent> {
@@ -81,7 +81,6 @@ function AssistantMessage({ m, live }: { m: ChatMsg; live: boolean }) {
         )}
         {m.content ? <Markdown text={m.content} /> : live && !m.thinking && !m.tools?.length && <div className="text-[13px] text-muted flex items-center gap-2"><Loader2 className="size-4 animate-spin" />Starting…</div>}
         {m.error && <Callout tone="danger">{m.error}</Callout>}
-        {m.model && <div className="text-[11.5px] text-faint">{m.model}{m.tokens ? ` · ${m.tokens.toLocaleString()} tokens` : ""}</div>}
       </div>
     </div>
   );
@@ -140,7 +139,7 @@ export default function Assistant() {
           if (k >= 0) tools[k] = { ...tools[k], status: ev.is_error ? "error" : "ok", output: ev.output };
           return { ...m, tools };
         });
-        else if (ev.type === "done") patchLast((m) => ({ ...m, model: ev.model, tokens: ev.usage.input_tokens + ev.usage.output_tokens }));
+        else if (ev.type === "done") patchLast((m) => ({ ...m, tokens: ev.usage.input_tokens + ev.usage.output_tokens }));
         else if (ev.type === "error") patchLast((m) => ({ ...m, error: ev.message }));
       }
     } catch (e) {
@@ -168,11 +167,10 @@ export default function Assistant() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[600px]">
       <PageHeader eyebrow="AI" title="Research assistant"
-        description="Streams its answer live and calls GlucoLab's validated engines as tools; each call and its output is shown as it runs."
-        actions={health.data?.ai_configured ? <Badge tone="brand">{health.data.ai_model}</Badge> : undefined} />
+        description="Streams its answer live and calls GlucoLab's validated engines as tools; each call and its output is shown as it runs." />
       {health.data && !health.data.ai_configured && (
-        <div className="mb-4"><Callout tone="warn" title="AI is not configured on this server">
-          Add <code className="font-mono">ANTHROPIC_API_KEY</code> to the git-ignored <code className="font-mono">.env</code> file in the repository root and restart the backend. Every other feature works without it.
+        <div className="mb-4"><Callout tone="warn" title="The AI assistant is not available on this site right now">
+          Every other part of GlucoLab works as normal. If you run your own copy, see the README for how to turn the assistant on.
         </Callout></div>
       )}
       <div className="flex-1 min-h-0 grid lg:grid-cols-[230px_1fr] gap-4">

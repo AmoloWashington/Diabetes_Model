@@ -265,3 +265,25 @@ def test_stream_endpoint_unconfigured_emits_error(client, monkeypatch):
     r = client.post("/api/ai/chat/stream", json={"messages": [{"role": "user", "content": "hi"}]})
     events = [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
     assert events[-1]["type"] == "error" and "ANTHROPIC_API_KEY" in events[-1]["message"]
+
+
+def test_health_survives_half_imported_risk_model(monkeypatch):
+    # While the warm-up thread imports app.ml.risk_model, sys.modules can hold a module
+    # object that does not define is_ready yet; /api/health must report "not ready", not 500.
+    import sys
+    import types
+
+    from app import main
+
+    monkeypatch.setitem(sys.modules, "app.ml.risk_model", types.ModuleType("app.ml.risk_model"))
+    assert main._risk_model_ready() is False
+
+
+def test_public_endpoints_do_not_expose_model_name():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    c = TestClient(app)
+    assert "ai_model" not in c.get("/api/health").json()
+    assert "model" not in c.get("/api/ai/status").json()
