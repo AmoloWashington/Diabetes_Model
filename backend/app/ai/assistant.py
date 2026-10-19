@@ -9,11 +9,20 @@ trace so users can see exactly which computation backs each statement.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-import anthropic
+from typing import TYPE_CHECKING
 
 from ..config import settings
 from .tools import TOOLS, run_tool
+
+if TYPE_CHECKING:
+    import anthropic
+
+
+def _anthropic():
+    """Import the SDK on first use; it is slow to import and only the assistant needs it."""
+    import anthropic
+
+    return anthropic
 
 SYSTEM_PROMPT = """You are the research assistant of GlucoLab, a computational physiology \
 application for diabetes research and education. Your users range from students to \
@@ -92,7 +101,7 @@ def _get_client() -> anthropic.Anthropic:
             "(or in a git-ignored .env file) and restart."
         )
     if _client is None:
-        _client = anthropic.Anthropic(max_retries=2, timeout=300.0)
+        _client = _anthropic().Anthropic(max_retries=2, timeout=300.0)
     return _client
 
 
@@ -116,6 +125,7 @@ def _request_kwargs(messages: list, stream: bool = False) -> dict:
 
 
 def _translate_api_error(e: Exception) -> Exception:
+    anthropic = _anthropic()
     if isinstance(e, anthropic.AuthenticationError):
         return AssistantUnavailable("The Anthropic API rejected the credentials (401).")
     if isinstance(e, anthropic.PermissionDeniedError):
@@ -173,7 +183,7 @@ def run_events(history: list[dict], client=None, stream: bool = False, context: 
                     response = s.get_final_message()
             else:
                 response = client.beta.messages.create(**_request_kwargs(messages))
-        except anthropic.APIError as e:
+        except _anthropic().APIError as e:
             raise _translate_api_error(e) from e
 
         model_used = getattr(response, "model", model_used) or model_used
