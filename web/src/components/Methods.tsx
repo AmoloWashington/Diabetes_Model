@@ -1,6 +1,6 @@
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { ChevronDown, FileCode2, Sigma } from "lucide-react";
+import { ChevronDown, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
 import { METHODS } from "@/lib/methods";
 import { cx } from "./ui";
@@ -38,10 +38,7 @@ export function MethodsPanel({ id, defaultOpen = false }: { id: keyof typeof MET
               {s.text && <p className="text-[13px] text-muted leading-6">{s.text}</p>}
             </div>
           ))}
-          <div className="grid md:grid-cols-2 gap-3 text-[12.5px]">
-            <div className="rounded-lg border border-line p-3"><div className="font-semibold text-ink-2 mb-1">Numerical method</div><div className="text-muted leading-5">{m.numerics}</div></div>
-            <div className="rounded-lg border border-line p-3"><div className="font-semibold text-ink-2 mb-1 flex items-center gap-1.5"><FileCode2 className="size-3.5" />Implementation</div><code className="font-mono text-[12px] text-muted">{m.code}</code></div>
-          </div>
+          <div className="rounded-lg border border-line p-3 text-[12.5px]"><div className="font-semibold text-ink-2 mb-1">Numerical method</div><div className="text-muted leading-5">{m.numerics}</div></div>
         </div>
       )}
     </section>

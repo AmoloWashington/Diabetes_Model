@@ -91,7 +91,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 101 automated tests)
+## Validation (enforced by 102 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -130,12 +130,12 @@ backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · 
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            101 tests
+  tests/            102 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```
 
-Interactive API documentation: http://localhost:8000/docs
+Interactive API documentation: http://localhost:8000/docs (set `ENABLE_API_DOCS=false` to turn it off; the Render blueprint does this for the public site)
 
 ```bash
 cd backend && python -m pytest            # backend tests

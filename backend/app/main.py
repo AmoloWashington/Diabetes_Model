@@ -68,9 +68,12 @@ app = FastAPI(
     description=(
         "Peer-reviewed models of glucose-insulin physiology (Dalla Man 2007, Bergman 1979, "
         "Topp 2000), clinical indices, a leak-free validated symptom risk model, DNA sequence "
-        "analysis and a Claude-powered research assistant grounded in those engines. "
+        "analysis and an AI research assistant grounded in those engines. "
         "For research and education only; not a medical device."
     ),
+    docs_url="/docs" if settings.api_docs else None,
+    redoc_url="/redoc" if settings.api_docs else None,
+    openapi_url="/openapi.json" if settings.api_docs else None,
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(rna_router)

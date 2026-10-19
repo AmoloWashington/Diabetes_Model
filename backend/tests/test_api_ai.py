@@ -287,3 +287,15 @@ def test_public_endpoints_do_not_expose_model_name():
     c = TestClient(app)
     assert "ai_model" not in c.get("/api/health").json()
     assert "model" not in c.get("/api/ai/status").json()
+
+
+def test_api_docs_can_be_disabled():
+    import os
+    import subprocess
+    import sys
+
+    code = "from app.main import app; print(app.docs_url, app.redoc_url, app.openapi_url)"
+    env = {**os.environ, "ENABLE_API_DOCS": "false"}
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True,
+                         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    assert out.stdout.split() == ["None", "None", "None"]
