@@ -10,8 +10,9 @@ import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -25,7 +26,7 @@ from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
-    BetaCellRequest, ChatRequest, DiffusionRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, DiffusionRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
     MealSimRequest, MembraneRequest, RiskRequest,
 )
 
@@ -178,6 +179,17 @@ def biophysics_membrane(req: MembraneRequest) -> dict:
 @app.post("/api/biophysics/diffusion")
 def biophysics_diffusion(req: DiffusionRequest) -> dict:
     return services.diffusion(req)
+
+
+@app.post("/api/cgm/analyze")
+async def cgm_analyze(req: CgmAnalyzeRequest) -> dict:
+    return await run_in_threadpool(services.cgm_analyze, req)
+
+
+@app.get("/api/cgm/sample")
+async def cgm_sample(phenotype: Literal["normal", "insulin_resistant", "type2"] = "type2",
+                     days: int = Query(14, ge=1, le=28)) -> dict:
+    return await run_in_threadpool(services.cgm_sample, phenotype, days)
 
 
 @app.post("/api/clinical/indices")

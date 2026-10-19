@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity, BookOpen, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
-  Microscope, Moon, Orbit, ScanSearch, Sigma, Sun, TestTubes, Timer, X, Zap,
+  Activity, BookOpen, ChartSpline, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
+  Microscope, Moon, Orbit, Pill, ScanSearch, Sigma, Sun, TestTubes, Timer, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -19,6 +19,7 @@ const NAV: { group: string | null; items: Item[] }[] = [
       { to: "/physiology/beta-cell", label: "β-cell dynamics", icon: <Timer /> },
       { to: "/physiology/minimal-model", label: "Insulin sensitivity", icon: <FlaskConical /> },
       { to: "/physiology/clinical", label: "Clinical indices", icon: <HeartPulse /> },
+      { to: "/physiology/cgm", label: "Glucose data (CGM)", icon: <ChartSpline /> },
       { to: "/physiology/biophysics", label: "Membrane biophysics", icon: <Zap /> },
     ],
   },
@@ -28,6 +29,7 @@ const NAV: { group: string | null; items: Item[] }[] = [
       { to: "/cells/explorer", label: "3D cell explorer", icon: <ScanSearch /> },
       { to: "/cells", label: "Cell theatre", icon: <Microscope /> },
       { to: "/dna", label: "DNA lab", icon: <Dna /> },
+      { to: "/genetics/monogenic", label: "Monogenic diabetes", icon: <Pill /> },
     ],
   },
   {
