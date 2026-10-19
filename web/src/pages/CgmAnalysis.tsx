@@ -10,6 +10,7 @@ import { MethodsPanel } from "@/components/Methods";
 import { Badge, Button, Callout, Card, CardHeader, Field, PageHeader, Segmented, Select, Stat, cx, useToast } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmt } from "@/lib/format";
+import { useI18n, type Key } from "@/lib/i18n";
 
 type Unit = "mg/dl" | "mmol/l";
 interface Band { key: string; label: string; pct: number }
@@ -34,6 +35,7 @@ const BAND_COLOR: Record<string, string> = {
 export default function CgmAnalysis() {
   const toast = useToast();
   const c = useChartColors();
+  const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const [display, setDisplay] = useState<Unit>("mg/dl");
   const [inUnit, setInUnit] = useState<"auto" | Unit>("auto");
@@ -65,46 +67,48 @@ export default function CgmAnalysis() {
 
   async function onFile(f: File | undefined) {
     if (!f) return;
-    if (f.size > 15 * 1024 * 1024) { toast("File is larger than 15 MB.", "error"); return; }
+    if (f.size > 15 * 1024 * 1024) { toast(t("cgm.fileTooBig"), "error"); return; }
     setFileName(f.name);
     upload.mutate(await f.text());
   }
 
   const bandsByKey = Object.fromEntries((r?.bands ?? []).map((b) => [b.key, b]));
-  const summary = r ? `CGM summary (${r.source.synthetic ? `synthetic ${r.source.phenotype} sample` : "uploaded data"}): ${fmt(r.days, 1)} days, ${r.n_readings} readings, mean ${fmt(r.mean_mg_dl, 0)} mg/dl, CV ${fmt(r.cv_pct, 1)}%, GMI ${fmt(r.gmi_pct, 1)}%. Time in ranges: ${r.bands.map((b) => `${b.label} ${fmt(b.pct, 1)}%`).join(", ")}. Targets met: ${r.targets.filter((t) => t.met).length}/${r.targets.length}.` : "";
+  const bandLabel = (k: string) => t(`${display === "mmol/l" ? "cgm.bandMmol" : "cgm.band"}.${k}` as Key);
+  const summary = r ? cgmSummary(r) : "";
+  const explainQ = t("cgm.explainQ");
 
   return (
     <div>
-      <PageHeader eyebrow="Physiology" title="Glucose data (CGM)"
-        description="Upload a continuous glucose monitor export to get the internationally agreed metrics: time in ranges, variability, the glucose management indicator and the ambulatory glucose profile."
-        actions={<AskAI page="Glucose data (CGM)" summary={summary} question="Explain this CGM report: what do these numbers mean and which targets are not met?" />} />
+      <PageHeader eyebrow={t("nav.group.physiology")} title={t("cgm.title")}
+        description={t("cgm.description")}
+        actions={<AskAI page="Glucose data (CGM)" summary={summary} question={explainQ} label={t("cgm.askBtn")} />} />
 
       <div className="grid xl:grid-cols-[320px_1fr] gap-5 items-start">
         <div className="flex flex-col gap-4 xl:sticky xl:top-8">
           <Card>
-            <CardHeader title="Your data" subtitle="CSV export with a time column and a glucose column" />
+            <CardHeader title={t("cgm.yourData")} subtitle={t("cgm.yourDataSub")} />
             <div className="flex flex-col gap-3">
-              <Field label="Values in the file are">
+              <Field label={t("cgm.valuesAre")}>
                 <Select value={inUnit} onChange={(e) => setInUnit(e.target.value as "auto" | Unit)}>
-                  <option value="auto">Detect automatically</option>
+                  <option value="auto">{t("cgm.detect")}</option>
                   <option value="mg/dl">mg/dl</option>
                   <option value="mmol/l">mmol/l</option>
                 </Select>
               </Field>
               <input ref={fileRef} type="file" accept=".csv,.txt,text/csv" className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
-              <Button variant="primary" icon={<FileUp className="size-4" />} loading={upload.isPending} onClick={() => fileRef.current?.click()}>Upload CSV</Button>
-              <p className="text-[12px] text-muted leading-5">The file is analysed on the server and not stored. Exports with metadata lines above the header (for example LibreView) are supported; text readings such as "Low" are skipped and counted.</p>
+              <Button variant="primary" icon={<FileUp className="size-4" />} loading={upload.isPending} onClick={() => fileRef.current?.click()}>{t("cgm.upload")}</Button>
+              <p className="text-[12px] text-muted leading-5">{t("cgm.privacy")}</p>
             </div>
           </Card>
           <Card>
-            <CardHeader title="Or try sample data" subtitle="Synthetic, from the meal model" />
+            <CardHeader title={t("cgm.sample")} subtitle={t("cgm.sampleSub")} />
             <div className="flex flex-col gap-3">
               <Select value={phenotype} onChange={(e) => setPhenotype(e.target.value)}>
-                <option value="normal">Healthy adult (published parameters)</option>
-                <option value="insulin_resistant">Insulin resistant (illustrative)</option>
-                <option value="type2">Type 2 diabetes (illustrative)</option>
+                <option value="normal">{t("cgm.ph.normal")}</option>
+                <option value="insulin_resistant">{t("cgm.ph.ir")}</option>
+                <option value="type2">{t("cgm.ph.t2")}</option>
               </Select>
-              <Button icon={<FlaskConical className="size-4" />} loading={sample.isPending} onClick={() => { setFileName(null); upload.reset(); sample.mutate(phenotype); }}>Generate 14 days</Button>
+              <Button icon={<FlaskConical className="size-4" />} loading={sample.isPending} onClick={() => { setFileName(null); upload.reset(); sample.mutate(phenotype); }}>{t("cgm.generate")}</Button>
             </div>
           </Card>
         </div>
@@ -114,8 +118,8 @@ export default function CgmAnalysis() {
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap text-[13px] text-muted min-w-0">
-                  {r.source.synthetic ? <Badge tone="accent">Synthetic sample · not a person's data</Badge> : <Badge tone="brand">{fileName}</Badge>}
-                  <span>{fmt(r.days, 1)} days · {r.n_readings.toLocaleString()} readings · every {fmt(r.sampling_interval_min, 0)} min{r.wear_pct !== null && ` · ${fmt(Math.min(r.wear_pct, 100), 0)}% coverage`}</span>
+                  {r.source.synthetic ? <Badge tone="accent">{t("cgm.syntheticBadge")}</Badge> : <Badge tone="brand">{fileName}</Badge>}
+                  <span>{t("cgm.info", { days: fmt(r.days, 1), n: r.n_readings.toLocaleString(), m: fmt(r.sampling_interval_min, 0) })}{r.wear_pct !== null && t("cgm.coverage", { c: fmt(Math.min(r.wear_pct, 100), 0) })}</span>
                 </div>
                 <Segmented<Unit> value={display} onChange={setDisplay} options={[{ value: "mg/dl", label: "mg/dl" }, { value: "mmol/l", label: "mmol/l" }]} />
               </div>
@@ -123,31 +127,31 @@ export default function CgmAnalysis() {
               {r.source.time_column && <p className="text-[12px] text-faint -mt-2">Read columns “{r.source.time_column}” and “{r.source.glucose_column}”, from {r.source.start?.replace("T", " ")} to {r.source.end?.replace("T", " ")}.{r.source.skipped_non_numeric ? ` Skipped ${r.source.skipped_non_numeric} non-numeric readings.` : ""}</p>}
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Stat label={display === "mmol/l" ? "Time in range (3.9–10.0)" : "Time in range (70–180)"} value={fmt(bandsByKey.in_range?.pct, 0)} unit="%" tone={bandsByKey.in_range?.pct > 70 ? "ok" : "warn"} hint="target above 70%" />
-                <Stat label="Mean glucose" value={fmt(conv(r.mean_mg_dl), dec)} unit={display} hint={`SD ${fmt(conv(r.sd_mg_dl), dec)} ${display}`} />
-                <Stat label="GMI" value={fmt(r.gmi_pct, 1)} unit="%" hint={`${fmt(r.gmi_mmol_mol, 0)} mmol/mol`} />
-                <Stat label="Variability (CV)" value={fmt(r.cv_pct, 1)} unit="%" tone={r.cv_pct <= 36 ? "ok" : "warn"} hint="target 36% or less" />
+                <Stat label={display === "mmol/l" ? t("cgm.tirMmol") : t("cgm.tir")} value={fmt(bandsByKey.in_range?.pct, 0)} unit="%" tone={bandsByKey.in_range?.pct > 70 ? "ok" : "warn"} hint={t("cgm.tirTarget")} />
+                <Stat label={t("cgm.mean")} value={fmt(conv(r.mean_mg_dl), dec)} unit={display} hint={`SD ${fmt(conv(r.sd_mg_dl), dec)} ${display}`} />
+                <Stat label={t("cgm.gmi")} value={fmt(r.gmi_pct, 1)} unit="%" hint={`${fmt(r.gmi_mmol_mol, 0)} mmol/mol`} />
+                <Stat label={t("cgm.cv")} value={fmt(r.cv_pct, 1)} unit="%" tone={r.cv_pct <= 36 ? "ok" : "warn"} hint={t("cgm.cvTarget")} />
               </div>
 
               <div className="grid lg:grid-cols-[300px_1fr] gap-5">
                 <Card>
-                  <CardHeader title="Time in ranges" />
+                  <CardHeader title={t("cgm.ranges")} />
                   <div className="flex gap-4 items-stretch">
                     <div className="w-10 h-60 flex flex-col rounded-md overflow-hidden border border-line shrink-0" aria-label="Stacked time in ranges">
-                      {BAND_ORDER.map((k) => <div key={k} style={{ flexGrow: Math.max(bandsByKey[k]?.pct ?? 0, 0.0001), background: BAND_COLOR[k] }} title={`${bandsByKey[k]?.label}: ${fmt(bandsByKey[k]?.pct, 1)}%`} />)}
+                      {BAND_ORDER.map((k) => <div key={k} style={{ flexGrow: Math.max(bandsByKey[k]?.pct ?? 0, 0.0001), background: BAND_COLOR[k] }} title={`${bandLabel(k)}: ${fmt(bandsByKey[k]?.pct, 1)}%`} />)}
                     </div>
                     <ul className="flex flex-col justify-between text-[12.5px] py-0.5 min-w-0">
                       {BAND_ORDER.map((k) => (
                         <li key={k} className="flex items-center gap-2">
                           <span className="size-2.5 rounded-sm shrink-0" style={{ background: BAND_COLOR[k] }} />
-                          <span className="text-ink-2 whitespace-nowrap">{display === "mmol/l" ? mmolLabel(k) : bandsByKey[k]?.label}</span>
-                          <span className="num font-semibold ml-auto pl-2">{fmt(bandsByKey[k]?.pct, 1)}%</span>
+                          <span className="text-ink-2 leading-4 min-w-0">{bandLabel(k)}</span>
+                          <span className="num font-semibold ml-auto pl-2 shrink-0">{fmt(bandsByKey[k]?.pct, 1)}%</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 </Card>
-                <ChartCard title="Ambulatory glucose profile" subtitle={`Median, 25–75% and 5–95% of readings by time of day (${display})`}>
+                <ChartCard title={t("cgm.agp")} subtitle={t("cgm.agpSub", { unit: display })}>
                   <div style={{ height: 260 }} className="w-full">
                     <ResponsiveContainer>
                       <ComposedChart data={agpRows} margin={{ top: 8, right: 16, bottom: 18, left: 0 }}>
@@ -171,27 +175,37 @@ export default function CgmAnalysis() {
               </div>
 
               <Card>
-                <CardHeader title="Consensus targets" subtitle="For most adults with type 1 or type 2 diabetes; individual targets are set with a clinician" />
+                <CardHeader title={t("cgm.targets")} subtitle={t("cgm.targetsSub")} />
                 <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-                  {r.targets.map((t) => (
-                    <li key={t.metric} className="flex items-center gap-2 text-[13px]">
-                      {t.met ? <CheckCircle2 className="size-4 text-ok shrink-0" /> : <XCircle className="size-4 text-warn shrink-0" />}
-                      <span className="text-ink-2 min-w-0">{t.description}</span>
-                      <span className={cx("num font-semibold ml-auto", t.met ? "text-ok" : "text-warn")}>{fmt(t.value, 1)}%</span>
+                  {r.targets.map((tg) => (
+                    <li key={tg.metric} className="flex items-center gap-2 text-[13px]">
+                      {tg.met ? <CheckCircle2 className="size-4 text-ok shrink-0" /> : <XCircle className="size-4 text-warn shrink-0" />}
+                      <span className="text-ink-2 min-w-0">{t(`cgm.t.${tg.metric}` as Key)}</span>
+                      <span className={cx("num font-semibold ml-auto", tg.met ? "text-ok" : "text-warn")}>{fmt(tg.value, 1)}%</span>
                     </li>
                   ))}
                 </ul>
               </Card>
 
-              <ChartCard title="All readings" subtitle={`Glucose over the recording (${display}); shaded band 70–180 mg/dl`}>
-                <TimeSeries data={trace} x="day" xLabel="day" height={220}
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-semibold">{t("cgm.explainTitle")}</div>
+                    <p className="text-[13px] text-muted mt-0.5">{t("cgm.explainText")}</p>
+                  </div>
+                  <AskAI page="Glucose data (CGM)" summary={summary} question={explainQ} label={t("cgm.explainBtn")} />
+                </div>
+              </Card>
+
+              <ChartCard title={t("cgm.all")} subtitle={t("cgm.allSub", { unit: display })}>
+                <TimeSeries data={trace} x="day" xLabel={t("cgm.day")} height={220}
                   refAreas={[{ y1: conv(70), y2: conv(180), color: c.v1 }]}
                   series={[{ key: "g", label: `Glucose (${display})`, color: c.v1 }]} />
               </ChartCard>
-              {r.source.synthetic && <Callout>{r.source.description}</Callout>}
+              {r.source.synthetic && <Callout>{t("cgm.syntheticNote")}</Callout>}
             </>
           )}
-          <Callout tone="warn" title="Not medical advice">GlucoLab is research and education software. Discuss your glucose data and targets with your clinician.</Callout>
+          <Callout tone="warn" title={t("cgm.notAdviceTitle")}>{t("cgm.notAdvice")}</Callout>
           <MethodsPanel id="cgm" />
         </div>
       </div>
@@ -199,6 +213,23 @@ export default function CgmAnalysis() {
   );
 }
 
-function mmolLabel(k: string) {
-  return { very_low: "Very low (<3.0)", low: "Low (3.0–3.8)", in_range: "In range (3.9–10.0)", high: "High (10.1–13.9)", very_high: "Very high (>13.9)" }[k] ?? k;
+
+/** Plain-text summary of the report for the AI assistant: summary statistics only, no raw readings. */
+function cgmSummary(r: Cgm): string {
+  const periods: [string, number, number][] = [["overnight (00–06)", 0, 360], ["morning (06–12)", 360, 720], ["afternoon (12–18)", 720, 1080], ["evening (18–24)", 1080, 1440]];
+  const med = (lo: number, hi: number) => {
+    const v = r.agp.filter((b) => b.minute >= lo && b.minute < hi && b.p50 !== null).map((b) => b.p50 as number).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  const tod = periods.map(([name, lo, hi]) => { const m = med(lo, hi); return m === null ? null : `${name} ${fmt(m, 0)} mg/dl (${fmt(m / MGDL, 1)} mmol/l)`; }).filter(Boolean).join("; ");
+  const src = r.source.synthetic ? `SYNTHETIC demonstration data (meal-model ${r.source.phenotype} sample), not a real person` : "data uploaded by the user";
+  return [
+    `CGM report from ${src}.`,
+    `${fmt(r.days, 1)} days, ${r.n_readings} readings every ${fmt(r.sampling_interval_min, 0)} min${r.wear_pct !== null ? `, ${fmt(Math.min(r.wear_pct, 100), 0)}% coverage` : ""}.`,
+    `Mean glucose ${fmt(r.mean_mg_dl, 0)} mg/dl (${fmt(r.mean_mmol_l, 1)} mmol/l), SD ${fmt(r.sd_mg_dl, 0)} mg/dl, coefficient of variation ${fmt(r.cv_pct, 1)}%, GMI ${fmt(r.gmi_pct, 1)}% (${fmt(r.gmi_mmol_mol, 0)} mmol/mol).`,
+    `Time in ranges: ${r.bands.map((b) => `${b.label} ${fmt(b.pct, 1)}%`).join(", ")}; below 70 mg/dl total ${fmt(r.below_70_pct, 1)}%, above 180 mg/dl total ${fmt(r.above_180_pct, 1)}%.`,
+    `Consensus targets: ${r.targets.map((t) => `${t.description}: ${fmt(t.value, 1)}% (${t.met ? "met" : "not met"})`).join("; ")}.`,
+    tod ? `Median glucose by time of day: ${tod}.` : "",
+    r.notes.length ? `Data notes: ${r.notes.join(" ")}` : "",
+  ].filter(Boolean).join(" ");
 }

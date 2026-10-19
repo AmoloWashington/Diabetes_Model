@@ -182,3 +182,23 @@ class CgmAnalyzeRequest(_Strict):
         if (self.csv is None) == (self.points is None):
             raise ValueError("Provide either csv text or points, not both")
         return self
+
+
+FeedbackRole = Literal["clinician", "diabetes_educator", "researcher", "lecturer", "student",
+                       "person_with_diabetes", "family_carer", "other"]
+
+
+class FeedbackRequest(_Strict):
+    role: FeedbackRole
+    rating: int = Field(ge=1, le=5)
+    would_use: Literal["yes", "maybe", "no"]
+    pages: list[str] = Field(default_factory=list, max_length=30)
+    accuracy_concerns: str = Field("", max_length=4000)
+    suggestions: str = Field("", max_length=4000)
+    language: Literal["en", "sw"] = "en"
+    website: str = Field("", max_length=200)  # honeypot: real users never see or fill this field
+
+    @model_validator(mode="after")
+    def _clean(self):
+        self.pages = [p.strip()[:60] for p in self.pages if p.strip()]
+        return self

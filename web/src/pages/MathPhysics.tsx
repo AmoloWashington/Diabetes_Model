@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { MethodsPanel, TeX } from "@/components/Methods";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 
-// Exact SI values (2019 redefinition); identical to backend/app/physiology/biophysics.py.
+// Exact SI values (2019 redefinition), the same constants the biophysics engine uses.
 const CONSTANTS: [string, string, string][] = [
   [String.raw`k_B`, String.raw`1.380649\times10^{-23}\ \mathrm{J\,K^{-1}}`, "Boltzmann constant (exact)"],
   [String.raw`N_A`, String.raw`6.02214076\times10^{23}\ \mathrm{mol^{-1}}`, "Avogadro constant (exact)"],
@@ -36,7 +36,7 @@ export default function MathPhysics() {
   return (
     <div>
       <PageHeader eyebrow="Foundations" title="Math & physics"
-        description="Every equation GlucoLab solves, in one place. Each block mirrors the backend code that produces the numbers on screen, with its numerical method, source file and primary reference. Open a panel to read it, or jump to the page that runs it." />
+        description="Every equation GlucoLab solves, in one place. Each block matches the calculation behind the numbers on screen, with its numerical method and primary reference. Open a panel to read it, or jump to the page that runs it." />
       <Card className="mb-6">
         <CardHeader title="Physical constants" subtitle="SI 2019 exact values; R and F are derived from them, never typed in" />
         <div className="overflow-x-auto">

@@ -9,13 +9,9 @@ import remarkMath from "remark-math";
 import { Badge, Callout, PageHeader, cx } from "@/components/ui";
 import { api, type Health } from "@/lib/api";
 import { loadConversations, newId, saveConversations, takePendingQuestion, type ChatMsg, type Conversation } from "@/lib/chatStore";
+import { useI18n } from "@/lib/i18n";
 
-const SUGGESTIONS = [
-  "Simulate a 75 g meal in the healthy and type 2 phenotypes and explain the mechanistic differences.",
-  "Derive the β-cell resting potential with the GHK equation and show how K_ATP closure depolarises it.",
-  "Fold GGGCGCAAGCCUAUGCGCUUCGGCGCAUAGGCUUGCGCCC and explain how confident the structure is.",
-  "Why does a rapid fall in insulin sensitivity cause β-cell failure in the Topp model while a slow one does not?",
-];
+const SUGGESTION_KEYS = ["ai.s1", "ai.s2", "ai.s3", "ai.s4"] as const;
 
 type StreamEvent =
   | { type: "text"; text: string } | { type: "thinking"; text: string }
@@ -87,6 +83,7 @@ function AssistantMessage({ m, live }: { m: ChatMsg; live: boolean }) {
 }
 
 export default function Assistant() {
+  const { t } = useI18n();
   const health = useQuery({ queryKey: ["health"], queryFn: () => api.get<Health>("/api/health") });
   const [convs, setConvs] = useState<Conversation[]>(() => loadConversations());
   const [activeId, setActiveId] = useState<string | null>(() => loadConversations()[0]?.id ?? null);
@@ -166,16 +163,13 @@ export default function Assistant() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[600px]">
-      <PageHeader eyebrow="AI" title="Research assistant"
-        description="Streams its answer live and calls GlucoLab's validated engines as tools; each call and its output is shown as it runs." />
+      <PageHeader eyebrow="AI" title={t("ai.title")} description={t("ai.description")} />
       {health.data && !health.data.ai_configured && (
-        <div className="mb-4"><Callout tone="warn" title="The AI assistant is not available on this site right now">
-          Every other part of GlucoLab works as normal. If you run your own copy, see the README for how to turn the assistant on.
-        </Callout></div>
+        <div className="mb-4"><Callout tone="warn" title={t("ai.unavailableTitle")}>{t("ai.unavailableText")}</Callout></div>
       )}
       <div className="flex-1 min-h-0 grid lg:grid-cols-[230px_1fr] gap-4">
         <aside className="hidden lg:flex flex-col rounded-xl border border-line bg-surface shadow-card min-h-0">
-          <button onClick={() => setActiveId(null)} className="m-2 flex items-center gap-2 rounded-lg border border-line-strong px-3 h-9 text-[13px] font-medium hover:bg-surface-2"><MessageSquarePlus className="size-4" />New conversation</button>
+          <button onClick={() => setActiveId(null)} className="m-2 flex items-center gap-2 rounded-lg border border-line-strong px-3 h-9 text-[13px] font-medium hover:bg-surface-2"><MessageSquarePlus className="size-4" />{t("ai.new")}</button>
           <ul className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
             {convs.map((c) => (
               <li key={c.id} className={cx("group flex items-center rounded-lg", c.id === activeId ? "bg-brand-soft/70" : "hover:bg-surface-2")}>
@@ -184,7 +178,7 @@ export default function Assistant() {
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-faint hover:text-danger" aria-label="Delete conversation"><Trash2 className="size-3.5" /></button>
               </li>
             ))}
-            {!convs.length && <li className="px-2.5 py-2 text-[12px] text-faint">Conversations are saved in this browser.</li>}
+            {!convs.length && <li className="px-2.5 py-2 text-[12px] text-faint">{t("ai.saved")}</li>}
           </ul>
         </aside>
         <div className="flex flex-col min-h-0">
@@ -193,10 +187,10 @@ export default function Assistant() {
               {!active?.messages.length && (
                 <div className="text-center py-8">
                   <div className="size-11 rounded-xl bg-brand-soft text-brand-text grid place-items-center mx-auto"><BrainCircuit className="size-5" /></div>
-                  <h3 className="mt-3 font-semibold">Ask about physiology, biophysics, RNA or the models</h3>
-                  <p className="text-[13px] text-muted mt-1">Use "Ask AI about this" on any page to bring its results here.</p>
+                  <h3 className="mt-3 font-semibold">{t("ai.emptyTitle")}</h3>
+                  <p className="text-[13px] text-muted mt-1">{t("ai.emptyText")}</p>
                   <div className="grid sm:grid-cols-2 gap-2 mt-6 text-left">
-                    {SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)} className="min-w-0 break-words [overflow-wrap:anywhere] rounded-lg border border-line p-3 text-[13px] text-ink-2 hover:bg-surface-2 hover:border-line-strong">{s}</button>)}
+                    {SUGGESTION_KEYS.map((k) => t(k)).map((s) => <button key={s} onClick={() => send(s)} className="min-w-0 break-words [overflow-wrap:anywhere] rounded-lg border border-line p-3 text-[13px] text-ink-2 hover:bg-surface-2 hover:border-line-strong">{s}</button>)}
                   </div>
                 </div>
               )}
@@ -217,7 +211,7 @@ export default function Assistant() {
           <form className="mt-3 flex gap-2 items-end" onSubmit={(e) => { e.preventDefault(); send(input); }}>
             <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2} maxLength={8000}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-              placeholder="Ask a question… (Enter to send, Shift+Enter for a new line)"
+              placeholder={t("ai.placeholder")}
               className="flex-1 resize-none rounded-xl border border-line-strong bg-surface px-4 py-3 text-[14px] focus:outline-none focus:border-brand focus:ring-3 focus:ring-[var(--brand-ring)] shadow-card" />
             {streaming ? (
               <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" className="size-11 rounded-xl grid place-items-center bg-surface border border-line-strong text-ink hover:bg-surface-2 shadow-card"><Square className="size-4 fill-current" /></button>

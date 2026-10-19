@@ -1,14 +1,13 @@
 // "Model & methods" content for every engine. Each equation mirrors the backend
-// implementation (backend/app/...). Displayed with KaTeX.
+// implementation. Displayed with KaTeX.
 
 export interface MethodsSection { title: string; eqs?: string[]; text?: string }
-export interface Methods { title: string; source: string; sections: MethodsSection[]; numerics: string; code: string }
+export interface Methods { title: string; source: string; sections: MethodsSection[]; numerics: string }
 
 export const METHODS: Record<string, Methods> = {
   meal: {
     title: "Dalla Man–Rizza–Cobelli meal model",
     source: "Dalla Man C, Rizza RA, Cobelli C. IEEE Trans Biomed Eng 2007;54:1740–1749",
-    code: "backend/app/physiology/uva_padova.py",
     sections: [
       {
         title: "Glucose kinetics (two compartments)",
@@ -56,7 +55,6 @@ export const METHODS: Record<string, Methods> = {
   betacell: {
     title: "βIG model of β-cell mass, insulin and glucose",
     source: "Topp B, Promislow K, deVries G, Miura RM, Finegood DT. J Theor Biol 2000;206:605–619",
-    code: "backend/app/physiology/beta_cell.py",
     sections: [
       {
         title: "Dynamics (time in days)",
@@ -78,7 +76,6 @@ export const METHODS: Record<string, Methods> = {
   minimal: {
     title: "Bergman minimal model",
     source: "Bergman RN, Ider YZ, Bowden CR, Cobelli C. Am J Physiol 1979;236:E667–E677",
-    code: "backend/app/physiology/minimal_model.py",
     sections: [
       {
         title: "Glucose minimal model",
@@ -104,7 +101,6 @@ export const METHODS: Record<string, Methods> = {
   clinical: {
     title: "Clinical indices",
     source: "Matthews 1985; Katz 2000; Nathan (ADAG) 2008; Simental-Mendía 2008; ADA Standards of Care",
-    code: "backend/app/physiology/indices.py",
     sections: [
       {
         title: "Formulas",
@@ -120,7 +116,6 @@ export const METHODS: Record<string, Methods> = {
   rnafold: {
     title: "RNA secondary structure (ViennaRNA)",
     source: "Lorenz R et al. Algorithms Mol Biol 2011;6:26 · McCaskill JS. Biopolymers 1990;29:1105–1119",
-    code: "backend/app/rna/folding.py",
     sections: [
       {
         title: "Minimum free energy and the Boltzmann ensemble",
@@ -136,7 +131,6 @@ export const METHODS: Record<string, Methods> = {
   rna3d: {
     title: "RNA 3D modelling and comparison",
     source: "Kabsch W. Acta Cryst A 1976;32:922–923 · Zhang C et al. (US-align) Nat Methods 2022;19:1109–1115",
-    code: "backend/app/rna/structure3d.py",
     sections: [
       {
         title: "Coarse-grained de novo embedding (one bead per nucleotide, C1′)",
@@ -159,7 +153,6 @@ export const METHODS: Record<string, Methods> = {
   risk: {
     title: "Symptom risk model",
     source: "Data: Islam MMF et al. 2020 (UCI #529)",
-    code: "backend/app/ml/risk_model.py",
     sections: [
       {
         title: "Model and explanation",
@@ -182,7 +175,6 @@ export const METHODS: Record<string, Methods> = {
   membrane: {
     title: "Membrane potential",
     source: "Nernst 1888 · Goldman 1943 · Hodgkin & Katz 1949",
-    code: "backend/app/physiology/biophysics.py",
     sections: [
       {
         title: "Equilibrium and resting potentials",
@@ -197,7 +189,6 @@ export const METHODS: Record<string, Methods> = {
   diffusion: {
     title: "Diffusion",
     source: "Einstein A. Ann Phys 1905;322:549–560",
-    code: "backend/app/physiology/biophysics.py",
     sections: [
       {
         title: "Stokes–Einstein and mean-squared displacement",
@@ -209,7 +200,6 @@ export const METHODS: Record<string, Methods> = {
   cgm: {
     title: "Continuous glucose monitoring metrics",
     source: "Battelino T et al. Diabetes Care 2019;42:1593–1603 · Bergenstal RM et al. Diabetes Care 2018;41:2275–2280",
-    code: "backend/app/physiology/cgm.py",
     sections: [
       {
         title: "Ranges and summary statistics (glucose g in mg/dl)",

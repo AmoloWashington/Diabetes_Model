@@ -56,6 +56,12 @@ Every other feature works offline, without keys. **Never commit `.env`.**
   docker run -p 8000:8000 --env-file .env -v glucolab-data:/data glucolab
   ```
 - **Deploy online (Render, free tier):** sign in at render.com, choose *New → Blueprint*, and pick this repository. `render.yaml` builds the Dockerfile as one web service and gives you a public `https://….onrender.com` URL. If you want the AI assistant, add `ANTHROPIC_API_KEY` in the Render dashboard, and note that every visitor's questions are billed to that key (requests are rate-limited per minute). On the free tier the service sleeps when idle, and stored sequences and datasets are lost on restart. Attach a disk at `/data` to keep them. The same Dockerfile also runs on Railway, Fly.io and Google Cloud Run, which supply `$PORT`.
+- **Custom domain (for example glucolab.org):**
+  1. Buy the domain from any registrar (Cloudflare, Namecheap, Porkbun and others).
+  2. In Render: your service → **Settings → Custom Domains → Add**, and enter both `glucolab.org` and `www.glucolab.org`.
+  3. Render shows the DNS records to create (a CNAME for `www`, and an A or ALIAS record for the bare domain). Add exactly those at your registrar. Render issues the HTTPS certificate automatically once DNS has propagated, which can take minutes to a few hours.
+  4. Set the `SITE_URL` environment variable to `https://glucolab.org` and redeploy, so link previews on WhatsApp and LinkedIn point to the new address. If previews still show the old address, change the default in `web/vite.config.ts`.
+- **Feedback:** the **Give feedback** page stores submissions on the server. To keep them on Render's free tier (which loses files on restart), set `FEEDBACK_GITHUB_TOKEN` (a fine-grained GitHub token with *Issues: read and write* on this repository only) and `FEEDBACK_GITHUB_REPO`; each submission then becomes a GitHub issue. See [docs/REVIEWER_GUIDE.md](docs/REVIEWER_GUIDE.md) for who to ask and what to send them.
 - **Manual:**
   1. `pip install -r requirements.txt`
   2. `cd web && npm ci && npm run build`
@@ -82,7 +88,8 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 | | Structure viewer | 3Dmol.js (the engine behind py3Dmol): predicted, uploaded and RCSB PDB structures; cartoon, stick, sphere and molecular-surface styles; residue labels on hover; helix and hairpin-loop labels on predicted models; colour by confidence/nucleotide/chain; TM-score and RMSD comparison; py3Dmol notebook snippet |
 | **Data & models** | Dataset explorer | Kaggle import via the official `kagglehub` client (e.g. Stanford RNA 3D Folding), file upload, schema and row browser, RNA analytics, template library |
 | | Diabetes risk model | Symptom classifier with leak-free grouped cross-validation, bootstrap CIs, calibration, exact explanations |
-| **AI** | Research assistant | Claude in a tool-use loop over all engines above, including the biophysics calculators. Answers stream live with a reasoning summary; each tool call and its output appear as it runs. "Ask AI about this" on each page sends that page's current results as context. Conversations are saved in the browser, and equations render with KaTeX. |
+| **AI** | Research assistant | Claude in a tool-use loop over all engines above, including the biophysics calculators. On the CGM page, "Explain my report" sends the report's summary numbers (never the individual readings) so the assistant can explain it in plain words, against the consensus targets and without dosing advice. It replies in the user's language, including Swahili. Answers stream live with a reasoning summary; each tool call and its output appear as it runs. "Ask AI about this" on each page sends that page's current results as context. Conversations are saved in the browser, and equations render with KaTeX. |
+| **Access** | Install, language, feedback | Installable on phones and desktops (web app manifest and a service worker that never caches calculations); English and a **draft** Swahili interface (menu, CGM page, assistant, feedback; awaiting review by a Swahili-speaking health professional); a feedback page for reviewers |
 | **Methods** | Model & methods panels | Every model page ends with the governing equations (KaTeX), numerical method, code path and primary reference, mirrored from the backend implementation. |
 
 ### How the RNA 3D confidence works (read this before presenting predictions)
@@ -91,7 +98,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 101 automated tests)
+## Validation (enforced by 108 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -130,12 +137,12 @@ backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · 
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            101 tests
+  tests/            108 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```
 
-Interactive API documentation: http://localhost:8000/docs
+Interactive API documentation: http://localhost:8000/docs (set `ENABLE_API_DOCS=false` to turn it off; the Render blueprint does this for the public site)
 
 ```bash
 cd backend && python -m pytest            # backend tests

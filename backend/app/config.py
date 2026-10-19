@@ -40,6 +40,8 @@ class Settings:
     claude_fallbacks: bool = _bool("CLAUDE_FALLBACKS", True)
     ai_max_tool_rounds: int = int(os.environ.get("AI_MAX_TOOL_ROUNDS", "8"))
     ai_rate_limit_per_min: int = int(os.environ.get("AI_RATE_LIMIT_PER_MIN", "12"))
+    # Interactive API reference at /docs and /redoc; turn off on public deployments.
+    api_docs: bool = _bool("ENABLE_API_DOCS", True)
     cors_origins: tuple[str, ...] = tuple(
         o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()
     )

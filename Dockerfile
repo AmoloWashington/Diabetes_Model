@@ -4,6 +4,9 @@ WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
+# Public site address for link previews; defaults to the onrender.com URL when not given.
+ARG SITE_URL=""
+ENV SITE_URL=${SITE_URL}
 RUN npm run build
 
 # ---- Stage 2: Python API serving the built UI
