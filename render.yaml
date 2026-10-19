@@ -13,6 +13,18 @@ services:
         sync: false
       - key: AI_RATE_LIMIT_PER_MIN
         value: "6"
+      # Optional: file each feedback submission as a GitHub issue (durable on the free tier).
+      # Token: fine-grained personal access token with Issues read/write on this repository only.
+      - key: FEEDBACK_GITHUB_TOKEN
+        sync: false
+      - key: FEEDBACK_GITHUB_REPO
+        value: AmoloWashington/Diabetes_Model
+      # Optional: lets you read stored feedback at /api/feedback with the x-admin-token header.
+      - key: FEEDBACK_ADMIN_TOKEN
+        sync: false
+      # Public address for link previews; change when you add a custom domain.
+      - key: SITE_URL
+        value: https://glucolab.onrender.com
       # Hide the interactive API reference (/docs, /redoc, /openapi.json) on the public site.
       - key: ENABLE_API_DOCS
         value: "false"

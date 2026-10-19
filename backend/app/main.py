@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
+import os
+import secrets
 import sys
 import threading
 import time
@@ -19,14 +22,14 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import services
+from . import feedback, services
 from .ai import assistant
 from .config import settings
 from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
-    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, DiffusionRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, DiffusionRequest, FeedbackRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
     MealSimRequest, MembraneRequest, RiskRequest,
 )
 
@@ -34,6 +37,7 @@ log = logging.getLogger("glucolab")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 def _warm_risk_model(delay_s: float = 10.0) -> None:
@@ -108,18 +112,19 @@ _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
 
-def _rate_limit(request: Request) -> None:
-    limit = settings.ai_rate_limit_per_min
+def _rate_limit(request: Request, limit: int | None = None, bucket: str = "ai",
+                detail: str = "Too many AI requests; please wait a minute.") -> None:
+    limit = settings.ai_rate_limit_per_min if limit is None else limit
     if limit <= 0:
         return
-    key = request.client.host if request.client else "unknown"
+    key = f"{bucket}:{request.client.host if request.client else 'unknown'}"
     now = time.monotonic()
     with _hits_lock:
         q = _hits[key]
         while q and now - q[0] > 60.0:
             q.popleft()
         if len(q) >= limit:
-            raise HTTPException(status_code=429, detail="Too many AI requests; please wait a minute.")
+            raise HTTPException(status_code=429, detail=detail)
         q.append(now)
 
 
@@ -229,6 +234,25 @@ def dna_analyze(req: DNARequest) -> dict:
     return services.dna_analysis(req.sequence)
 
 
+# ---------------------------------------------------------------- feedback
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest, request: Request) -> dict:
+    _rate_limit(request, limit=5, bucket="feedback", detail="Too many submissions; please wait a minute.")
+    if req.website:  # honeypot filled in: almost certainly a bot; accept silently, store nothing
+        return {"ok": True, "id": None, "filed_on_github": False}
+    return await run_in_threadpool(feedback.submit, req.model_dump(exclude={"website"}))
+
+
+@app.get("/api/feedback", include_in_schema=False)
+def read_feedback(request: Request) -> dict:
+    token = os.environ.get("FEEDBACK_ADMIN_TOKEN", "")
+    given = request.headers.get("x-admin-token", "")
+    if not token or not secrets.compare_digest(given.encode(), token.encode()):
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"items": feedback.list_all()}
+
+
 # ---------------------------------------------------------------- AI
 
 @app.get("/api/ai/status")
@@ -276,8 +300,10 @@ if FRONTEND_DIR.is_dir():
             raise HTTPException(status_code=404, detail="Not found")
         f = (FRONTEND_DIR / path).resolve()
         if path and f.is_file() and FRONTEND_DIR.resolve() in f.parents:
-            return FileResponse(f)
-        return FileResponse(FRONTEND_DIR / "index.html")
+            # The service worker and manifest must be re-checked on every load so updates reach phones.
+            headers = {"Cache-Control": "no-cache"} if path in ("sw.js", "manifest.webmanifest") else None
+            return FileResponse(f, headers=headers)
+        return FileResponse(FRONTEND_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 else:
 
     @app.get("/", include_in_schema=False)

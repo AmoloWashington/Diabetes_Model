@@ -3,8 +3,16 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
+// Public address used in link previews (Open Graph). Override at build time with
+// SITE_URL=https://your-domain.org when the site moves to a custom domain.
+const SITE_URL = (process.env.SITE_URL || "https://glucolab.onrender.com").replace(/\/+$/, "");
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    { name: "site-url", transformIndexHtml: (html: string) => html.replaceAll("__SITE_URL__", SITE_URL) },
+  ],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     port: 5173,

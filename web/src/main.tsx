@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Spinner, ToastProvider } from "./components/ui";
+import { LangProvider } from "./lib/i18n";
+import { registerPwa } from "./lib/pwa";
 import { ThemeProvider } from "./lib/theme";
 import "./styles.css";
 
@@ -38,6 +40,7 @@ const router = createBrowserRouter([
       { path: "/data", element: page(() => import("./pages/DatasetExplorer")) },
       { path: "/risk", element: page(() => import("./pages/RiskModel")) },
       { path: "/assistant", element: page(() => import("./pages/Assistant")) },
+      { path: "/feedback", element: page(() => import("./pages/Feedback")) },
       { path: "/references", element: page(() => import("./pages/References")) },
       { path: "*", element: page(() => import("./pages/NotFound")) },
     ],
@@ -46,14 +49,18 @@ const router = createBrowserRouter([
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } } });
 
+registerPwa();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>
+      <LangProvider>
       <QueryClientProvider client={qc}>
         <ToastProvider>
           <RouterProvider router={router} />
         </ToastProvider>
       </QueryClientProvider>
+      </LangProvider>
     </ThemeProvider>
   </StrictMode>,
 );
