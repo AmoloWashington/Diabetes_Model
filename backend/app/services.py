@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from .ml import risk_model
 from .molecular import dna
 from .physiology import beta_cell, biophysics, indices, minimal_model, uva_padova
 from .schemas import (
@@ -187,10 +186,14 @@ def clinical_indices(req: IndicesRequest) -> dict:
 
 
 def symptom_risk(req: RiskRequest) -> dict:
+    from .ml import risk_model  # scikit-learn is slow to import; load it on first use
+
     return risk_model.predict(risk_model.get_bundle(), req.patient.model_dump(), req.target_prevalence)
 
 
 def risk_model_card() -> dict:
+    from .ml import risk_model
+
     return risk_model.get_bundle().report
 
 

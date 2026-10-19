@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import threading
 import time
 from collections import defaultdict, deque
@@ -20,7 +21,6 @@ from fastapi.staticfiles import StaticFiles
 from . import services
 from .ai import assistant
 from .config import settings
-from .ml import risk_model
 from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
@@ -35,10 +35,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
+def _warm_risk_model(delay_s: float = 10.0) -> None:
+    time.sleep(delay_s)
+    from .ml import risk_model
+
+    risk_model.get_bundle()
+
+
+def _risk_model_ready() -> bool:
+    rm = sys.modules.get("app.ml.risk_model")
+    return bool(rm and rm.is_ready())
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Train or load the risk model in the background so the first request is fast.
-    threading.Thread(target=risk_model.get_bundle, name="risk-model-warmup", daemon=True).start()
+    # Load the risk model (and scikit-learn) in the background after the server is up, so a
+    # cold start on a small instance answers its first page request without waiting for it.
+    threading.Thread(target=_warm_risk_model, name="risk-model-warmup", daemon=True).start()
     yield
 
 
@@ -107,7 +120,7 @@ def _rate_limit(request: Request) -> None:
 def health() -> dict:
     return {
         "status": "ok",
-        "risk_model_ready": risk_model.is_ready(),
+        "risk_model_ready": _risk_model_ready(),
         "ai_configured": settings.ai_configured,
         "ai_model": settings.claude_model if settings.ai_configured else None,
     }
