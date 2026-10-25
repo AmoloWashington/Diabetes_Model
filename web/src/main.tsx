@@ -31,6 +31,7 @@ const router = createBrowserRouter([
       { path: "/physiology/cgm", element: page(() => import("./pages/CgmAnalysis")) },
       { path: "/physiology/biophysics", element: page(() => import("./pages/Biophysics")) },
       { path: "/genetics/monogenic", element: page(() => import("./pages/MonogenicDiabetes")) },
+      { path: "/genetics/crispr", element: page(() => import("./pages/CrisprFinder")) },
       { path: "/cells/explorer", element: page(() => import("./pages/CellExplorer")) },
       { path: "/cells", element: page(() => import("./pages/CellTheatre")) },
       { path: "/dna", element: page(() => import("./pages/DnaLab")) },

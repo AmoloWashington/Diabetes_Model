@@ -115,6 +115,12 @@ class DNARequest(_Strict):
     sequence: str = Field(min_length=1, max_length=5000)
 
 
+class CrisprRequest(_Strict):
+    sequence: str = Field(min_length=1, max_length=50000)
+    gc_low: float = Field(40.0, ge=0, le=100)
+    gc_high: float = Field(60.0, ge=0, le=100)
+
+
 class ChatMessage(_Strict):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=8000)

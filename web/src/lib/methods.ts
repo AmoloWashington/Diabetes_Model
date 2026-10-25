@@ -216,4 +216,19 @@ export const METHODS: Record<string, Methods> = {
     ],
     numerics: "Closed form on the uploaded readings. Units are detected from the median (below 35 is taken as mmol/l) unless chosen explicitly.",
   },
+  crispr: {
+    title: "CRISPR-Cas9 guide finder (SpCas9)",
+    source: "Jinek M et al. Science 2012;337:816–821 · Ran FA et al. Nat Protoc 2013;8:2281–2308",
+    sections: [
+      {
+        title: "Target sites",
+        text: "SpCas9 cuts next to a protospacer-adjacent motif (PAM) of the form 5′-NGG-3′. The 20-nucleotide guide (spacer) is the sequence immediately 5′ of the PAM, on the same strand as the PAM. Both strands are searched, because a PAM can occur on either. The blunt double-strand break falls 3 bp upstream (5′) of the PAM, between positions 17 and 18 of the 20-nt protospacer.",
+      },
+      {
+        title: "Quality flags (rules of thumb, not a scoring model)",
+        text: "GC content outside the chosen window (default 40–60%) is flagged; a run of four or more T's (TTTT) in the spacer can terminate transcription and is flagged; a spacer that occurs more than once within the pasted sequence is flagged as non-unique. Uniqueness is checked only within the sequence you paste — this is not a genome-wide off-target search, and no activity score (such as Doench 2016) is computed.",
+      },
+    ],
+    numerics: "Exact string matching of the NGG PAM on both strands; flags are transparent thresholds.",
+  },
 };
