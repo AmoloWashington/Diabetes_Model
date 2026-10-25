@@ -152,7 +152,7 @@ export function Stat({ label, value, unit, tone, hint }: { label: string; value:
   );
 }
 
-export function Callout({ tone = "info", title, children }: { tone?: "info" | "warn" | "danger" | "ok"; title?: ReactNode; children: ReactNode }) {
+export function Callout({ tone = "info", title, children, className }: { tone?: "info" | "warn" | "danger" | "ok"; title?: ReactNode; children: ReactNode; className?: string }) {
   const map = {
     info: { cls: "bg-surface-2 border-line text-ink-2", Icon: Info, ic: "text-brand-text" },
     warn: { cls: "bg-warn-soft border-transparent text-ink-2", Icon: AlertTriangle, ic: "text-warn" },
@@ -160,7 +160,7 @@ export function Callout({ tone = "info", title, children }: { tone?: "info" | "w
     ok: { cls: "bg-ok-soft border-transparent text-ink-2", Icon: CheckCircle2, ic: "text-ok" },
   }[tone];
   return (
-    <div className={cx("flex gap-2.5 rounded-lg border px-3.5 py-3 text-[13px] leading-5", map.cls)}>
+    <div className={cx("flex gap-2.5 rounded-lg border px-3.5 py-3 text-[13px] leading-5", map.cls, className)}>
       <map.Icon className={cx("size-4 mt-0.5 shrink-0", map.ic)} />
       <div className="min-w-0">{title && <div className="font-semibold text-ink mb-0.5">{title}</div>}{children}</div>
     </div>

@@ -115,6 +115,18 @@ class DNARequest(_Strict):
     sequence: str = Field(min_length=1, max_length=5000)
 
 
+class GlucoseForecastRequest(_Strict):
+    csv: str | None = Field(None, max_length=15_000_000)
+    points: list[CgmPoint] | None = None
+    unit: Literal["auto", "mg/dl", "mmol/l"] = "auto"
+
+    @model_validator(mode="after")
+    def _one_source(self):
+        if (self.csv is None) == (self.points is None):
+            raise ValueError("Provide either csv text or points, not both")
+        return self
+
+
 class CrisprRequest(_Strict):
     sequence: str = Field(min_length=1, max_length=50000)
     gc_low: float = Field(40.0, ge=0, le=100)

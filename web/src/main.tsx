@@ -29,6 +29,7 @@ const router = createBrowserRouter([
       { path: "/physiology/minimal-model", element: page(() => import("./pages/MinimalModel")) },
       { path: "/physiology/clinical", element: page(() => import("./pages/Clinical")) },
       { path: "/physiology/cgm", element: page(() => import("./pages/CgmAnalysis")) },
+      { path: "/physiology/forecast", element: page(() => import("./pages/GlucoseForecast")) },
       { path: "/physiology/biophysics", element: page(() => import("./pages/Biophysics")) },
       { path: "/genetics/monogenic", element: page(() => import("./pages/MonogenicDiabetes")) },
       { path: "/genetics/crispr", element: page(() => import("./pages/CrisprFinder")) },

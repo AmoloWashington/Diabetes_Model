@@ -29,7 +29,7 @@ from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
-    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, CrisprRequest, DiffusionRequest, FeedbackRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, CrisprRequest, DiffusionRequest, FeedbackRequest, DNARequest, GlucoseForecastRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
     MealSimRequest, MembraneRequest, RiskRequest,
 )
 
@@ -42,9 +42,13 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 def _warm_risk_model(delay_s: float = 10.0) -> None:
     time.sleep(delay_s)
-    from .ml import risk_model
+    from .ml import glucose_forecast, risk_model
 
     risk_model.get_bundle()
+    try:
+        glucose_forecast.get_benchmark()
+    except Exception:
+        log.exception("Glucose forecast benchmark warm-up failed")
 
 
 def _risk_model_ready() -> bool:
@@ -237,6 +241,16 @@ def dna_analyze(req: DNARequest) -> dict:
 @app.post("/api/crispr/guides")
 async def crispr_guides(req: CrisprRequest) -> dict:
     return await run_in_threadpool(services.crispr_guides, req)
+
+
+@app.get("/api/forecast/benchmark")
+async def forecast_benchmark() -> dict:
+    return await run_in_threadpool(services.glucose_forecast_benchmark)
+
+
+@app.post("/api/forecast/evaluate")
+async def forecast_evaluate(req: GlucoseForecastRequest) -> dict:
+    return await run_in_threadpool(services.glucose_forecast_series, req)
 
 
 # ---------------------------------------------------------------- feedback
