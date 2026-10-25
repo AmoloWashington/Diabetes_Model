@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from .molecular import dna
+from .molecular import crispr, dna
 from .physiology import beta_cell, biophysics, cgm, indices, minimal_model, uva_padova
 from .schemas import (
-    BetaCellRequest, CgmAnalyzeRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
-    MealSimRequest, MembraneRequest, RiskRequest,
+    BetaCellRequest, CgmAnalyzeRequest, CrisprRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest,
+    IVGTTRequest, MealSimRequest, MembraneRequest, RiskRequest,
 )
 
 REFERENCES = [
@@ -74,6 +74,15 @@ REFERENCES = [
     {"id": "hattersley2018", "used_for": "Diagnosis and management of monogenic diabetes (ISPAD guideline)",
      "citation": "Hattersley AT, et al. ISPAD Clinical Practice Consensus Guidelines 2018: the diagnosis and "
                  "management of monogenic diabetes in children and adolescents. Pediatr Diabetes. 2018;19(Suppl 27):47-63."},
+    {"id": "jinek2012", "used_for": "CRISPR-Cas9 mechanism and the NGG PAM (guide finder)",
+     "citation": "Jinek M, Chylinski K, Fonfara I, Hauer M, Doudna JA, Charpentier E. A programmable "
+                 "dual-RNA-guided DNA endonuclease in adaptive bacterial immunity. Science. 2012;337(6096):816-821."},
+    {"id": "ran2013", "used_for": "SpCas9 cut site (3 bp upstream of PAM) and guide design (guide finder)",
+     "citation": "Ran FA, Hsu PD, Wright J, Agarwala V, Scott DA, Zhang F. Genome engineering using the "
+                 "CRISPR-Cas9 system. Nat Protoc. 2013;8(11):2281-2308."},
+    {"id": "doench2016", "used_for": "Guide activity and specificity design rules (background for the guide finder)",
+     "citation": "Doench JG, et al. Optimized sgRNA design to maximize activity and minimize off-target "
+                 "effects of CRISPR-Cas9. Nat Biotechnol. 2016;34(2):184-191."},
     {"id": "shields2012", "used_for": "MODY probability calculator (clinical prediction model)",
      "citation": "Shields BM, et al. The development and validation of a clinical prediction model to determine "
                  "the probability of MODY in patients with young-onset diabetes. Diabetologia. 2012;55(5):1265-1272."},
@@ -223,6 +232,10 @@ def risk_model_card() -> dict:
 
 def dna_analysis(seq: str) -> dict:
     return dna.analyze(seq)
+
+
+def crispr_guides(req: "CrisprRequest") -> dict:
+    return crispr.find_guides(req.sequence, req.gc_low, req.gc_high)
 
 
 def membrane(req: MembraneRequest) -> dict:

@@ -29,7 +29,7 @@ from .molecular import dna
 from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
-    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, DiffusionRequest, FeedbackRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
+    BetaCellRequest, CgmAnalyzeRequest, ChatRequest, CrisprRequest, DiffusionRequest, FeedbackRequest, DNARequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
     MealSimRequest, MembraneRequest, RiskRequest,
 )
 
@@ -232,6 +232,11 @@ def dna_demo() -> dict:
 @app.post("/api/dna/analyze")
 def dna_analyze(req: DNARequest) -> dict:
     return services.dna_analysis(req.sequence)
+
+
+@app.post("/api/crispr/guides")
+async def crispr_guides(req: CrisprRequest) -> dict:
+    return await run_in_threadpool(services.crispr_guides, req)
 
 
 # ---------------------------------------------------------------- feedback
