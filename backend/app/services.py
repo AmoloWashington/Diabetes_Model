@@ -5,8 +5,8 @@ from __future__ import annotations
 from .molecular import crispr, dna
 from .physiology import beta_cell, biophysics, cgm, indices, minimal_model, uva_padova
 from .schemas import (
-    BetaCellRequest, CgmAnalyzeRequest, CrisprRequest, DiffusionRequest, IndicesRequest, IVGTTFitRequest,
-    IVGTTRequest, MealSimRequest, MembraneRequest, RiskRequest,
+    BetaCellRequest, CgmAnalyzeRequest, CrisprRequest, DiffusionRequest, GlucoseForecastRequest, IndicesRequest,
+    IVGTTFitRequest, IVGTTRequest, MealSimRequest, MembraneRequest, RiskRequest,
 )
 
 REFERENCES = [
@@ -236,6 +236,29 @@ def dna_analysis(seq: str) -> dict:
 
 def crispr_guides(req: "CrisprRequest") -> dict:
     return crispr.find_guides(req.sequence, req.gc_low, req.gc_high)
+
+
+def glucose_forecast_benchmark() -> dict:
+    from .ml import glucose_forecast
+    return glucose_forecast.get_benchmark()
+
+
+def glucose_forecast_series(req: "GlucoseForecastRequest") -> dict:
+    import numpy as np
+    from .ml import glucose_forecast
+    from .physiology import cgm as cgm_mod
+    if req.csv is not None:
+        minutes, g, meta = cgm_mod.parse_csv(req.csv)
+        used = cgm_mod._detect_unit(g, req.unit)
+        g = g * cgm_mod.MGDL_PER_MMOLL if used == "mmol/l" else g
+    else:
+        minutes = np.array([p.minute for p in req.points], float)
+        g = np.array([p.g for p in req.points], float)
+        used = cgm_mod._detect_unit(g, req.unit)
+        g = g * cgm_mod.MGDL_PER_MMOLL if used == "mmol/l" else g
+    out = glucose_forecast.evaluate_series(minutes, g)
+    out["unit_detected"] = used
+    return out
 
 
 def membrane(req: MembraneRequest) -> dict:

@@ -231,4 +231,22 @@ export const METHODS: Record<string, Methods> = {
     ],
     numerics: "Exact string matching of the NGG PAM on both strands; flags are transparent thresholds.",
   },
+  forecast: {
+    title: "Short-term glucose forecasting benchmark",
+    source: "Standard CGM prediction-horizon task; persistence baseline and ridge regression",
+    sections: [
+      {
+        title: "Task and models",
+        text: "From the last 60 minutes of CGM readings (on a 5-minute grid), predict glucose 30 and 60 minutes ahead. Models: persistence (glucose stays where it is — the standard strong baseline), linear slope extrapolation, and ridge regression on the lagged values, the recent slope and time of day, fitted per subject on that subject's own training period.",
+      },
+      {
+        title: "Evaluation (no leakage)",
+        eqs: [
+          String.raw`\mathrm{RMSE} = \sqrt{	frac{1}{N}\sum_i (\hat g_i - g_i)^2},\qquad 	ext{skill} = 1 - rac{\mathrm{RMSE}_{	ext{model}}}{\mathrm{RMSE}_{	ext{persistence}}}`,
+        ],
+        text: "Each series is split in time: the first 70% trains, the last 30% is held out for scoring, so a model never sees the test period it is judged on. Windows spanning a gap longer than 15 minutes are dropped. Positive skill means better than the persistence baseline.",
+      },
+    ],
+    numerics: "scikit-learn Ridge (alpha 10). The built-in cohort is synthetic (Dalla Man meal model), not real patients and not the OhioT1DM benchmark; upload a CGM file to evaluate on real data.",
+  },
 };

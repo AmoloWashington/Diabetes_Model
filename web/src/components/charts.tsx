@@ -128,9 +128,9 @@ export function Bars({ data, x, y, color, height = 240, horizontal, xLabel, colo
   );
 }
 
-export function ChartCard({ title, subtitle, children, actions }: { title: string; subtitle?: ReactNode; children: ReactNode; actions?: ReactNode }) {
+export function ChartCard({ title, subtitle, children, actions, className }: { title: string; subtitle?: ReactNode; children: ReactNode; actions?: ReactNode; className?: string }) {
   return (
-    <section className="bg-surface border border-line rounded-xl shadow-card p-5">
+    <section className={`bg-surface border border-line rounded-xl shadow-card p-5 ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <h3 className="text-[14px] font-semibold text-ink">{title}</h3>

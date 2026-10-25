@@ -1,6 +1,6 @@
 import {
   Activity, BookOpen, Languages, MessageSquareText, ChartSpline, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
-  Microscope, Moon, Orbit, Pill, Scissors, ScanSearch, Sigma, Sun, TestTubes, Timer, X, Zap,
+  Microscope, Moon, Orbit, Pill, Scissors, ScanSearch, Sigma, Sun, TestTubes, Timer, TrendingUp, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -20,6 +20,7 @@ const NAV: { group: Key | null; items: Item[] }[] = [
       { to: "/physiology/minimal-model", label: "nav.minimal", icon: <FlaskConical /> },
       { to: "/physiology/clinical", label: "nav.clinical", icon: <HeartPulse /> },
       { to: "/physiology/cgm", label: "nav.cgm", icon: <ChartSpline /> },
+      { to: "/physiology/forecast", label: "nav.forecast", icon: <TrendingUp /> },
       { to: "/physiology/biophysics", label: "nav.biophysics", icon: <Zap /> },
     ],
   },
