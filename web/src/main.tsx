@@ -40,6 +40,7 @@ const router = createBrowserRouter([
       { path: "/rna/predict", element: page(() => import("./pages/RnaPredict")) },
       { path: "/rna/structures", element: page(() => import("./pages/StructureViewer")) },
       { path: "/data", element: page(() => import("./pages/DatasetExplorer")) },
+      { path: "/data/nhanes", element: page(() => import("./pages/NhanesStudy")) },
       { path: "/risk", element: page(() => import("./pages/RiskModel")) },
       { path: "/assistant", element: page(() => import("./pages/Assistant")) },
       { path: "/feedback", element: page(() => import("./pages/Feedback")) },

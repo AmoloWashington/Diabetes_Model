@@ -120,6 +120,13 @@ REFERENCES = [
     {"id": "watson1953", "used_for": "DNA double helix",
      "citation": "Watson JD, Crick FHC. Molecular structure of nucleic acids: a structure for deoxyribose nucleic "
                  "acid. Nature. 1953;171(4356):737-738."},
+    {"id": "nhanes2018", "used_for": "Real-data study: US adult diabetes prevalence, HOMA-IR, HbA1c-FPG, pre-screening",
+     "citation": "Centers for Disease Control and Prevention, National Center for Health Statistics. National Health "
+                 "and Nutrition Examination Survey (NHANES) 2017-2018 public-use data files. Hyattsville, MD: CDC/NCHS.",
+     "doi": ""},
+    {"id": "cdc_nhanes_methods", "used_for": "NHANES survey weighting for population estimates (analytic guidelines)",
+     "citation": "Johnson CL, Paulose-Ram R, Ogden CL, et al. National Health and Nutrition Examination Survey: "
+                 "analytic guidelines, 1999-2010. Vital Health Stat 2(161). CDC/NCHS; 2013."},
 ]
 
 
@@ -241,6 +248,11 @@ def crispr_guides(req: "CrisprRequest") -> dict:
 def glucose_forecast_benchmark() -> dict:
     from .ml import glucose_forecast
     return glucose_forecast.get_benchmark()
+
+
+def nhanes_study() -> dict:
+    from .data import nhanes
+    return nhanes.get_study()
 
 
 def glucose_forecast_series(req: "GlucoseForecastRequest") -> dict:

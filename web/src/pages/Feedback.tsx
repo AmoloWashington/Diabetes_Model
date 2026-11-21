@@ -14,7 +14,8 @@ const PAGES: { key: Key; en: string }[] = [
   { key: "nav.minimal", en: "Insulin sensitivity" }, { key: "nav.clinical", en: "Clinical indices" },
   { key: "nav.biophysics", en: "Membrane biophysics" }, { key: "nav.math", en: "Math & physics" },
   { key: "nav.explorer", en: "3D cell explorer" }, { key: "nav.dna", en: "DNA lab" },
-  { key: "nav.predict", en: "RNA 3D prediction" }, { key: "nav.risk", en: "Diabetes risk model" },
+  { key: "nav.predict", en: "RNA 3D prediction" }, { key: "nav.nhanes", en: "Real-data study (NHANES)" },
+  { key: "nav.risk", en: "Diabetes risk model" },
   { key: "nav.assistant", en: "Research assistant" },
 ];
 
