@@ -101,7 +101,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 140 automated tests)
+## Validation (enforced by 142 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -125,6 +125,7 @@ Also tested:
 - path-traversal rejection;
 - the NHANES real-data study: adult-only sample, survey-weighted prevalence in the documented range, prevalence rising with age, HOMA-IR rising across BMI categories, HbA1c–glucose consistency, and the pre-screening model beating its age-only baseline out-of-fold;
 - external (temporal) validation: the pre-screening model trained on NHANES 2017–2018 holds an AUC of ~0.77 on the *separate* 2015–2016 cycle it never saw, close to its within-sample estimate (generalisation, not memorisation);
+- calibration on that held-out cycle: logistic calibration slope ≈ 1.0 and intercept ≈ 0.0, mean predicted ≈ observed, and a Brier score beating the base-rate baseline — so a displayed probability is close to a real one, not just a ranking;
 - the AI loop and its streaming endpoint, with a fake client.
 
 ### Data-leakage finding in the original model
@@ -142,7 +143,7 @@ backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · 
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            140 tests
+  tests/            142 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```

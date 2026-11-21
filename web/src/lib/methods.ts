@@ -279,6 +279,10 @@ export const METHODS: Record<string, Methods> = {
         title: "External (temporal) validation",
         text: "The strongest test is data from a different time. The pre-screening model is fit on the 2017–2018 cycle and scored on the entirely separate 2015–2016 cycle (built identically from the CDC public files with the _I suffix). A held-out AUC on that unseen year that matches the within-sample estimate is evidence the model generalises rather than memorises one survey. The same two cycles give a short prevalence trend, including the share of diabetes still undiagnosed.",
       },
+      {
+        title: "Calibration (are the probabilities honest?)",
+        text: "Discrimination (AUC) only measures ranking. Calibration measures whether a predicted probability means what it says. On the held-out 2015–2016 cycle we report the reliability curve (mean predicted vs observed frequency by decile), the Brier score against a base-rate baseline, the expected calibration error, and the logistic calibration slope and intercept (fit by regressing the outcome on the predicted log-odds; ideal values are 1.0 and 0.0). A curve on the diagonal means a displayed '10%' really corresponds to about a 10% chance.",
+      },
     ],
     numerics: "pandas reads the CDC SAS XPORT files; scikit-learn LogisticRegression with 5-fold StratifiedKFold (seed 0). Results are research and education output, not official CDC statistics and not a clinical screening tool.",
   },
