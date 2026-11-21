@@ -90,7 +90,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 | | Structure viewer | 3Dmol.js (the engine behind py3Dmol): predicted, uploaded and RCSB PDB structures; cartoon, stick, sphere and molecular-surface styles; residue labels on hover; helix and hairpin-loop labels on predicted models; colour by confidence/nucleotide/chain; TM-score and RMSD comparison; py3Dmol notebook snippet |
 | **Data & models** | Dataset explorer | Kaggle import via the official `kagglehub` client (e.g. Stanford RNA 3D Folding), file upload, schema and row browser, RNA analytics, template library |
 | | Real-data study (NHANES) | Analysis of **real measurements** from 5,569 US adults in the CDC/NCHS NHANES 2017–2018 survey (public domain). Survey-weighted diabetes (13.7%) and prediabetes (58.3%) prevalence by ADA lab criteria, with ~30% of lab-defined diabetes undiagnosed; HOMA-IR on real fasting insulin/glucose rising monotonically across BMI categories (validating the clinical-indices engine); HbA1c vs fasting glucose (r = 0.85) and the eAG consistency check; and a leak-free, non-invasive pre-screening model (age, sex, BMI, waist — no blood test) reaching out-of-fold ROC AUC 0.75 vs 0.71 for age alone. Research/education, not an official statistic and not a screening test |
-| | Diabetes risk model | Symptom classifier with leak-free grouped cross-validation, bootstrap CIs, calibration, exact explanations |
+| | Diabetes risk model | Two complementary models. (1) A **non-invasive pre-screening tool** built on NHANES: enter age, sex, height/weight and waist — no blood test — and get an estimated probability of undiagnosed diabetes, your percentile against the US adult distribution, and a clear "is a blood test worthwhile?" verdict at the model's 80%-sensitivity threshold (fitted on 4,747 adults, ROC AUC 0.75). (2) A symptom classifier with leak-free grouped cross-validation, bootstrap CIs, calibration and exact explanations. Neither is a diagnosis |
 | **AI** | Research assistant | Claude in a tool-use loop over all engines above, including the biophysics calculators. On the CGM page, "Explain my report" sends the report's summary numbers (never the individual readings) so the assistant can explain it in plain words, against the consensus targets and without dosing advice. It replies in the user's language, including Swahili. Answers stream live with a reasoning summary; each tool call and its output appear as it runs. "Ask AI about this" on each page sends that page's current results as context. Conversations are saved in the browser, and equations render with KaTeX. |
 | **Access** | Install, language, feedback | Installable on phones and desktops (web app manifest and a service worker that never caches calculations); English and a **draft** Swahili interface (menu, CGM page, assistant, feedback; awaiting review by a Swahili-speaking health professional); a feedback page for reviewers |
 | **Methods** | Model & methods panels | Every model page ends with the governing equations (KaTeX), numerical method, code path and primary reference, mirrored from the backend implementation. |
@@ -101,7 +101,7 @@ Every other feature works offline, without keys. **Never commit `.env`.**
 - **Coarse-grained de novo models:** confidence is the ViennaRNA ensemble probability of each nucleotide's secondary-structure state. It measures secondary-structure certainty only. Tertiary packing in these models is low-accuracy, and the app says so on every result.
 - Coordinates are one bead per nucleotide (the C1′ atom), the representation used by the Stanford RNA 3D Folding competition. The B-factor column of exported PDBs holds confidence × 100.
 
-## Validation (enforced by 133 automated tests)
+## Validation (enforced by 136 automated tests)
 
 | Model | Check | Published | GlucoLab |
 |---|---|---|---|
@@ -141,7 +141,7 @@ backend/    FastAPI · NumPy/SciPy · scikit-learn · ViennaRNA · Biopython · 
   app/rna/          sequences, folding, 3D prediction & comparison, datasets/Kaggle, storage, REST API
   app/ml/           leak-free risk model
   app/ai/           Claude agent loop and tools
-  tests/            133 tests
+  tests/            136 tests
 data/       UCI early-stage diabetes dataset (#529)
 scripts/    setup / run / dev for Windows and macOS/Linux
 ```

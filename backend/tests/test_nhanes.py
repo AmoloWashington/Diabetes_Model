@@ -105,3 +105,36 @@ def test_reference_registered():
     r = client.get("/api/references")
     ids = {x["id"] for x in r.json()["references"]}
     assert "nhanes2018" in ids
+
+
+def test_screen_model_ranks_risk_sensibly():
+    # A young, lean person should score well below an older person with high BMI and waist.
+    low = nhanes.screen(28, "female", 21.0, 72.0)
+    high = nhanes.screen(68, "male", 36.0, 122.0)
+    assert 0.0 <= low["probability"] <= 1.0
+    assert low["probability"] < high["probability"]
+    assert low["percentile"] < high["percentile"]
+    assert high["recommend_test"] is True
+    assert low["recommend_test"] is False
+
+
+def test_screen_probability_matches_fitted_model():
+    import numpy as np
+
+    b = nhanes.get_screen_model()
+    x = np.array([[55.0, 1, 31.0, 108.0]])
+    expected = float(b["model"].predict_proba(x)[:, 1][0])
+    got = nhanes.screen(55, "male", 31.0, 108.0)["probability"]
+    assert abs(got - round(expected, 4)) < 1e-9
+
+
+def test_screen_endpoint_validates_and_scores():
+    r = client.post("/api/nhanes/screen", json={"age": 60, "sex": "male", "bmi": 30, "waist_cm": 105})
+    assert r.status_code == 200
+    d = r.json()
+    assert 0 <= d["probability_pct"] <= 100
+    assert 0 <= d["percentile"] <= 100
+    assert d["band"] in {"lower", "average", "higher"}
+    # out-of-range input is rejected by the schema
+    assert client.post("/api/nhanes/screen", json={"age": 5, "sex": "male", "bmi": 30, "waist_cm": 105}).status_code == 422
+    assert client.post("/api/nhanes/screen", json={"age": 60, "sex": "x", "bmi": 30, "waist_cm": 105}).status_code == 422

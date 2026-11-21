@@ -30,7 +30,7 @@ from .physiology import uva_padova
 from .rna.api import router as rna_router
 from .schemas import (
     BetaCellRequest, CgmAnalyzeRequest, ChatRequest, CrisprRequest, DiffusionRequest, FeedbackRequest, DNARequest, GlucoseForecastRequest, IndicesRequest, IVGTTFitRequest, IVGTTRequest,
-    MealSimRequest, MembraneRequest, RiskRequest,
+    MealSimRequest, MembraneRequest, NhanesScreenRequest, RiskRequest,
 )
 
 log = logging.getLogger("glucolab")
@@ -52,6 +52,7 @@ def _warm_risk_model(delay_s: float = 10.0) -> None:
     try:
         from .data import nhanes
         nhanes.get_study()
+        nhanes.get_screen_model()
     except Exception:
         log.exception("NHANES study warm-up failed")
 
@@ -263,6 +264,11 @@ async def forecast_evaluate(req: GlucoseForecastRequest) -> dict:
 @app.get("/api/nhanes/study")
 async def nhanes_study() -> dict:
     return await run_in_threadpool(services.nhanes_study)
+
+
+@app.post("/api/nhanes/screen")
+async def nhanes_screen(req: NhanesScreenRequest) -> dict:
+    return await run_in_threadpool(services.nhanes_screen, req)
 
 
 # ---------------------------------------------------------------- feedback

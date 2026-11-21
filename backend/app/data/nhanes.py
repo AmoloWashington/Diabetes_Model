@@ -158,9 +158,116 @@ def compute() -> dict:
     }
 
 
+_screen: dict | None = None
+_screen_lock = threading.Lock()
+
+# Plausible input ranges for the pre-screening form (adults). Used for validation and to clamp.
+SCREEN_RANGES = {"age": (20, 100), "bmi": (12.0, 70.0), "waist_cm": (50.0, 200.0)}
+_FEATURES = ["age", "sex_male", "bmi", "waist_cm"]
+
+
+def _fit_screen() -> dict:
+    """Fit the final pre-screening model on all adults and build the reference distribution.
+
+    The reported AUC (from compute()) is the honest out-of-fold estimate; this fits on the full
+    sample so predictions use every data point, which is standard once a model has been validated.
+    """
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold
+
+    df = _load()
+    df["sex_male"] = (df.sex == "male").astype(int)
+    df = df.dropna(subset=["age", "bmi", "waist_cm"])
+    df["y"] = ((df.hba1c_pct >= 6.5) | (df.fpg_mgdl >= 126)).astype(int)
+    df = df[df.hba1c_pct.notna() | df.fpg_mgdl.notna()]
+    X, y = df[_FEATURES].to_numpy(float), df.y.to_numpy()
+
+    # Out-of-fold probabilities give an honest reference distribution (percentiles) and the
+    # probability cut that reaches ~80% sensitivity, without the person's own row leaking in.
+    oof = np.zeros(len(y))
+    for tr, te in StratifiedKFold(5, shuffle=True, random_state=0).split(X, y):
+        oof[te] = LogisticRegression(max_iter=1000).fit(X[tr], y[tr]).predict_proba(X[te])[:, 1]
+    order = np.argsort(oof)
+    oof_sorted = oof[order]
+    pos_sorted = y[order]
+    # Threshold reaching ~80% sensitivity: scan cut points, pick the highest cut that still
+    # catches >= 80% of true cases (fewest false alarms at that sensitivity).
+    total_pos = int(y.sum())
+    thr80 = 0.0
+    for cut in np.unique(oof_sorted):
+        sens = float((oof >= cut)[y == 1].mean()) if total_pos else 0.0
+        if sens >= 0.80:
+            thr80 = float(cut)
+    model = LogisticRegression(max_iter=1000).fit(X, y)
+    return {
+        "model": model,
+        "oof_sorted": oof_sorted,
+        "threshold80": thr80,
+        "prevalence": float(y.mean()),
+        "n": int(len(y)),
+    }
+
+
+def get_screen_model() -> dict:
+    import joblib
+
+    global _screen
+    if _screen is None:
+        with _screen_lock:
+            if _screen is None:
+                cp = CACHE_DIR / f"nhanes_screen_v{VERSION}_{_data_hash()}.joblib"
+                if cp.exists():
+                    try:
+                        _screen = joblib.load(cp)
+                    except Exception:
+                        _screen = None
+                if _screen is None:
+                    _screen = _fit_screen()
+                    try:
+                        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                        joblib.dump(_screen, cp)
+                    except OSError:
+                        pass
+    return _screen
+
+
+def screen(age: float, sex: str, bmi: float, waist_cm: float) -> dict:
+    """Score one person with the non-invasive pre-screening model (no blood test)."""
+    import numpy as np
+
+    b = get_screen_model()
+    sex_male = 1 if str(sex).lower().startswith("m") else 0
+    x = np.array([[float(age), sex_male, float(bmi), float(waist_cm)]])
+    prob = float(b["model"].predict_proba(x)[:, 1][0])
+    oof = b["oof_sorted"]
+    percentile = float((np.searchsorted(oof, prob, side="right") / len(oof)) * 100)
+    recommend = prob >= b["threshold80"]
+    rel = prob / b["prevalence"] if b["prevalence"] else 1.0
+    band = "higher" if rel >= 1.5 else "lower" if rel <= 0.667 else "average"
+    return {
+        "probability": round(prob, 4),
+        "probability_pct": round(prob * 100, 1),
+        "population_rate_pct": round(b["prevalence"] * 100, 1),
+        "percentile": round(percentile, 0),
+        "fold_vs_population": round(rel, 2),
+        "band": band,
+        "recommend_test": bool(recommend),
+        "test_threshold_pct": round(b["threshold80"] * 100, 1),
+        "features": {"age": float(age), "sex": "male" if sex_male else "female",
+                     "bmi": float(bmi), "waist_cm": float(waist_cm)},
+        "note": ("This is a triage aid built from NHANES body measurements, not a diagnosis. "
+                 "A high estimate means a blood test (HbA1c or fasting glucose) is worthwhile; "
+                 "a low estimate does not rule diabetes out."),
+    }
+
+
+def _data_hash() -> str:
+    return hashlib.sha256((DATA.read_bytes() if DATA.exists() else b"") + VERSION.encode()).hexdigest()[:16]
+
+
 def _cache_path() -> Path:
-    h = hashlib.sha256((DATA.read_bytes() if DATA.exists() else b"") + VERSION.encode()).hexdigest()[:16]
-    return CACHE_DIR / f"nhanes_study_v{VERSION}_{h}.joblib"
+    return CACHE_DIR / f"nhanes_study_v{VERSION}_{_data_hash()}.joblib"
 
 
 def get_study() -> dict:
@@ -187,4 +294,4 @@ def get_study() -> dict:
 
 
 def is_ready() -> bool:
-    return _result is not None
+    return _result is not None and _screen is not None
