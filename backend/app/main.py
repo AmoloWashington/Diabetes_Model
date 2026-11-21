@@ -54,6 +54,7 @@ def _warm_risk_model(delay_s: float = 10.0) -> None:
         nhanes.get_study()
         nhanes.get_screen_model()
         nhanes.get_validation()
+        nhanes.get_fairness()
     except Exception:
         log.exception("NHANES study warm-up failed")
 
@@ -275,6 +276,11 @@ async def nhanes_screen(req: NhanesScreenRequest) -> dict:
 @app.get("/api/nhanes/validation")
 async def nhanes_validation() -> dict:
     return await run_in_threadpool(services.nhanes_validation)
+
+
+@app.get("/api/nhanes/fairness")
+async def nhanes_fairness() -> dict:
+    return await run_in_threadpool(services.nhanes_fairness)
 
 
 # ---------------------------------------------------------------- feedback

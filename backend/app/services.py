@@ -265,6 +265,11 @@ def nhanes_validation() -> dict:
     return nhanes.get_validation()
 
 
+def nhanes_fairness() -> dict:
+    from .data import nhanes
+    return nhanes.get_fairness()
+
+
 def glucose_forecast_series(req: "GlucoseForecastRequest") -> dict:
     import numpy as np
     from .ml import glucose_forecast

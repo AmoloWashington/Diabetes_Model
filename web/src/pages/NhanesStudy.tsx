@@ -34,14 +34,18 @@ interface Validation {
   calibration: Calibration;
   note: string;
 }
+interface FairRow { group: string; n: number; positives: number; prevalence_pct: number | null; auc: number | null; predicted_pct: number | null; observed_pct: number | null; calib_gap_pct: number | null }
+interface Fairness { overall_auc: number; n: number; features: string; by_sex: FairRow[]; by_age: FairRow[]; by_race: FairRow[]; findings: string[]; note: string }
 
 export default function NhanesStudy() {
   const c = useChartColors();
-  const [tab, setTab] = useState<"prevalence" | "homa" | "hba1c" | "screen" | "validate">("prevalence");
+  const [tab, setTab] = useState<"prevalence" | "homa" | "hba1c" | "screen" | "validate" | "fairness">("prevalence");
   const q = useQuery({ queryKey: ["nhanes-study"], queryFn: () => api.get<Study>("/api/nhanes/study") });
   const vq = useQuery({ queryKey: ["nhanes-validation"], queryFn: () => api.get<Validation>("/api/nhanes/validation") });
+  const fq = useQuery({ queryKey: ["nhanes-fairness"], queryFn: () => api.get<Fairness>("/api/nhanes/fairness") });
   const r = q.data;
   const v = vq.data;
+  const f = fq.data;
 
   const summary = r ? `Real-data study on NHANES 2017–2018 (${r.n_adults.toLocaleString()} US adults 20+). Weighted laboratory-defined diabetes prevalence ${r.prevalence.diabetes_pct}% and prediabetes ${r.prevalence.prediabetes_pct}%; ${r.prevalence.undiagnosed_pct}% of lab-defined diabetes is undiagnosed. HOMA-IR median ${r.homa.median} (IQR ${r.homa.q1}–${r.homa.q3}), Pearson r with BMI ${r.homa.r_with_bmi}. HbA1c vs fasting glucose r=${r.hba1c.r_hba1c_fpg}. A non-invasive pre-screening model (${r.screening.features}) reaches ROC AUC ${r.screening.auc} vs ${r.screening.auc_age_only} for age alone.` : "";
 
@@ -51,6 +55,7 @@ export default function NhanesStudy() {
     { k: "hba1c", label: "HbA1c vs glucose" },
     { k: "screen", label: "Pre-screening model" },
     { k: "validate", label: "Does it hold up?" },
+    { k: "fairness", label: "Who does it work for?" },
   ] as const;
 
   const rocData = r?.screening.roc.map((p) => ({ fpr: p.fpr, tpr: p.tpr, chance: p.fpr })) ?? [];
@@ -216,6 +221,30 @@ export default function NhanesStudy() {
             </>
           )}
 
+          {tab === "fairness" && (
+            <>
+              {!f && <p className="text-[13px] text-muted mt-4">Loading the fairness audit…</p>}
+              {f && (
+                <>
+                  <Callout className="mt-4" title="Why this tab exists">
+                    A screening tool is only trustworthy if it works for the people it's meant to help — not just on average. Here is the model's accuracy (<b>AUC</b>, how well it ranks risk) and its <b>calibration gap</b> (predicted minus observed rate — positive means it over-states risk for that group, negative means it under-states it) within each subgroup. Showing this, including where the model is weaker, is the point.
+                  </Callout>
+                  <div className="grid lg:grid-cols-2 gap-5 mt-4">
+                    <FairCard title="By sex" rows={f.by_sex} />
+                    <FairCard title="By age band" rows={f.by_age} />
+                  </div>
+                  <div className="mt-5"><FairCard title="By race / ethnicity" rows={f.by_race} /></div>
+                  <Callout tone="warn" className="mt-5" title="What the audit found — stated plainly">
+                    <ul className="list-disc pl-5 flex flex-col gap-1.5">
+                      {f.findings.map((fi, i) => <li key={i}>{fi}</li>)}
+                    </ul>
+                  </Callout>
+                  <p className="text-[12px] text-faint mt-3">{f.note} Overall AUC {fmt(f.overall_auc, 3)} on {f.n.toLocaleString()} adults; features: {f.features}.</p>
+                </>
+              )}
+            </>
+          )}
+
           <Card className="mt-5">
             <CardHeader title="Caveats" subtitle={r.source} />
             <ul className="list-disc pl-5 flex flex-col gap-1.5 text-[13px] text-ink-2">
@@ -231,5 +260,31 @@ export default function NhanesStudy() {
         </>
       )}
     </div>
+  );
+}
+
+/** A subgroup table: accuracy (AUC) and the predicted-vs-observed calibration gap per group. */
+function FairCard({ title, rows }: { title: string; rows: FairRow[] }) {
+  return (
+    <Card padded={false}>
+      <div className="px-5 pt-5"><CardHeader title={title} subtitle="AUC = ranking accuracy · gap = predicted − observed risk" /></div>
+      <Table head={["Group", "n", "Prev.", "AUC", "Pred.", "Obs.", "Gap"]}>
+        {rows.map((r) => {
+          const gap = r.calib_gap_pct;
+          const tone = gap == null ? "text-faint" : Math.abs(gap) >= 4 ? "text-warn" : Math.abs(gap) >= 2 ? "text-ink-2" : "text-ok";
+          return (
+            <tr key={r.group}>
+              <td className="px-3 py-2.5 font-medium">{r.group}</td>
+              <td className="px-3 py-2.5 num text-faint">{r.n.toLocaleString()}</td>
+              <td className="px-3 py-2.5 num text-ink-2">{r.prevalence_pct == null ? "–" : `${fmt(r.prevalence_pct, 1)}%`}</td>
+              <td className="px-3 py-2.5 num">{r.auc == null ? <span className="text-faint" title="too few cases">n/a</span> : fmt(r.auc, 3)}</td>
+              <td className="px-3 py-2.5 num text-ink-2">{r.predicted_pct == null ? "–" : `${fmt(r.predicted_pct, 1)}%`}</td>
+              <td className="px-3 py-2.5 num text-ink-2">{r.observed_pct == null ? "–" : `${fmt(r.observed_pct, 1)}%`}</td>
+              <td className={cx("px-3 py-2.5 num font-medium", tone)}>{gap == null ? "–" : `${gap > 0 ? "+" : ""}${fmt(gap, 1)}`}</td>
+            </tr>
+          );
+        })}
+      </Table>
+    </Card>
   );
 }
