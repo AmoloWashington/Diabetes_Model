@@ -35,7 +35,7 @@ _DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nhanes"
 DATA = _DATA_DIR / "nhanes_2017_2018.csv"
 DATA_2015 = _DATA_DIR / "nhanes_2015_2016.csv"
 CACHE_DIR = Path(__file__).resolve().parents[2] / ".model_cache"
-VERSION = "1"
+VERSION = "2"
 
 _result: dict | None = None
 _lock = threading.Lock()
@@ -295,7 +295,7 @@ def compute_validation() -> dict:
     within-sample estimate: it shows the model generalises beyond the sample it was built on.
     """
     from sklearn.linear_model import LogisticRegression
-    from sklearn.metrics import roc_auc_score
+    from sklearn.metrics import brier_score_loss, roc_auc_score
 
     newer, older = _load(DATA), _load(DATA_2015)
     cycles = [_cycle_summary(older, "2015–2016"), _cycle_summary(newer, "2017–2018")]
@@ -310,9 +310,13 @@ def compute_validation() -> dict:
         return d[d.hba1c_pct.notna() | d.fpg_mgdl.notna()]
 
     tr, te = prep(newer), prep(older)
-    model = LogisticRegression(max_iter=1000).fit(tr[feat], tr.y)
-    auc_ext = float(roc_auc_score(te.y, model.predict_proba(te[feat])[:, 1]))
-    auc_app = float(roc_auc_score(tr.y, model.predict_proba(tr[feat])[:, 1]))
+    Xtr, ytr = tr[feat].to_numpy(float), tr.y.to_numpy()
+    model = LogisticRegression(max_iter=1000).fit(Xtr, ytr)
+    p = model.predict_proba(te[feat].to_numpy(float))[:, 1]
+    y = te.y.to_numpy()
+    auc_ext = float(roc_auc_score(y, p))
+    auc_app = float(roc_auc_score(ytr, model.predict_proba(Xtr)[:, 1]))
+
     return {
         "cycles": cycles,
         "external": {
@@ -320,10 +324,49 @@ def compute_validation() -> dict:
             "features": "age, sex, BMI, waist",
             "auc_external": round(auc_ext, 3),
             "auc_apparent": round(auc_app, 3),
-            "n_test": int(len(te)), "positives_test": int(te.y.sum()),
+            "n_test": int(len(te)), "positives_test": int(y.sum()),
         },
+        "calibration": _calibration(p, y),
         "note": ("The model is trained on one survey cycle and scored on a different one. A held-out "
                  "AUC on a separate year is strong evidence the model generalises, not just memorises."),
+    }
+
+
+def _calibration(p: np.ndarray, y: np.ndarray, n_bins: int = 10) -> dict:
+    """Does a predicted probability mean what it says, on the held-out cycle?
+
+    Returns the reliability curve (predicted vs observed by equal-count bins), the Brier score
+    against a base-rate baseline, the logistic calibration slope/intercept (ideal 1.0 / 0.0), and
+    the expected calibration error. Discrimination (AUC) is about ranking; this is about whether the
+    numbers are honest.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import brier_score_loss
+
+    edges = np.quantile(p, np.linspace(0, 1, n_bins + 1))
+    edges[0], edges[-1] = -1.0, 2.0
+    idx = np.digitize(p, edges) - 1
+    bins = []
+    ece = 0.0
+    for b in range(n_bins):
+        m = idx == b
+        if m.sum() == 0:
+            continue
+        pred, obs = float(p[m].mean()), float(y[m].mean())
+        bins.append({"pred": round(pred, 3), "obs": round(obs, 3), "n": int(m.sum())})
+        ece += abs(pred - obs) * m.sum()
+    logit = np.log(np.clip(p, 1e-6, 1 - 1e-6) / (1 - np.clip(p, 1e-6, 1 - 1e-6)))
+    cal = LogisticRegression(max_iter=1000).fit(logit.reshape(-1, 1), y)
+    base = np.full(len(y), y.mean())
+    return {
+        "bins": bins,
+        "brier": round(float(brier_score_loss(y, p)), 4),
+        "brier_baseline": round(float(brier_score_loss(y, base)), 4),
+        "mean_predicted": round(float(p.mean()), 3),
+        "observed": round(float(y.mean()), 3),
+        "slope": round(float(cal.coef_[0, 0]), 3),
+        "intercept": round(float(cal.intercept_[0]), 3),
+        "ece": round(float(ece / len(y)), 4),
     }
 
 

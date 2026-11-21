@@ -24,9 +24,14 @@ interface Study {
   homa: Homa; hba1c: Hba1c; screening: Screening; caveats: string[];
 }
 interface Cycle { cycle: string; n_adults: number; n_fasting: number; diabetes_pct: number; prediabetes_pct: number; diagnosed_pct: number; undiagnosed_pct: number }
+interface Calibration {
+  bins: { pred: number; obs: number; n: number }[];
+  brier: number; brier_baseline: number; mean_predicted: number; observed: number; slope: number; intercept: number; ece: number;
+}
 interface Validation {
   cycles: Cycle[];
   external: { train: string; test: string; features: string; auc_external: number; auc_apparent: number; n_test: number; positives_test: number };
+  calibration: Calibration;
   note: string;
 }
 
@@ -186,6 +191,25 @@ export default function NhanesStudy() {
                   </Card>
                   <Callout className="mt-4">
                     <b>What the trend shows.</b> Lab-defined diabetes held steady at {fmt(v.cycles[1].diabetes_pct, 1)}% across both cycles, but the undiagnosed share fell from {fmt(v.cycles[0].undiagnosed_pct, 1)}% to {fmt(v.cycles[1].undiagnosed_pct, 1)}% — modest progress in catching it, with a large gap still open. Two cycles is a short window and the weighted estimates carry sampling uncertainty, so read the direction, not the decimals.
+                  </Callout>
+
+                  <h3 className="text-[15px] font-semibold tracking-[-0.01em] mt-8">Is the number honest? (calibration)</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                    <Stat label="Calibration slope" value={fmt(v.calibration.slope, 2)} tone="ok" hint="ideal 1.00" />
+                    <Stat label="Calibration intercept" value={fmt(v.calibration.intercept, 2)} tone="ok" hint="ideal 0.00" />
+                    <Stat label="Brier score" value={fmt(v.calibration.brier, 3)} tone="ok" hint={`vs ${fmt(v.calibration.brier_baseline, 3)} base-rate`} />
+                    <Stat label="Mean predicted vs real" value={`${fmt(v.calibration.mean_predicted * 100, 1)} / ${fmt(v.calibration.observed * 100, 1)}%`} hint="should match" />
+                  </div>
+                  <ChartCard className="mt-4" title="Reliability curve (held-out 2015–2016)" subtitle="Average predicted probability vs the fraction who actually had diabetes, by decile. On the line = honest.">
+                    <TimeSeries data={v.calibration.bins.map((bn) => ({ pred: +(bn.pred * 100).toFixed(1), obs: +(bn.obs * 100).toFixed(1), ideal: +(bn.pred * 100).toFixed(1) }))}
+                      x="pred" xLabel="predicted probability (%)" yLabel="observed (%)" height={280}
+                      series={[
+                        { key: "obs", label: "Observed", color: c.v1, points: true },
+                        { key: "ideal", label: "Perfect calibration", color: c.faint, dashed: true },
+                      ]} />
+                  </ChartCard>
+                  <Callout tone="ok" className="mt-4" title="The probabilities mean what they say">
+                    Ranking (AUC) only tells you the model orders people correctly. Calibration asks the harder question: when it says "10%", is it really about 10%? On the unseen 2015–2016 cycle the reliability curve sits almost on the diagonal — calibration slope {fmt(v.calibration.slope, 2)} and intercept {fmt(v.calibration.intercept, 2)} (ideal 1.00 and 0.00), mean predicted {fmt(v.calibration.mean_predicted * 100, 1)}% against {fmt(v.calibration.observed * 100, 1)}% observed, expected calibration error just {fmt(v.calibration.ece * 100, 1)}%. The Brier score ({fmt(v.calibration.brier, 3)}) beats simply predicting the overall rate ({fmt(v.calibration.brier_baseline, 3)}). So the percentage the tool shows you is not just a ranking — it is close to a real probability.
                   </Callout>
                 </>
               )}

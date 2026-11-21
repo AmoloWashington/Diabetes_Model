@@ -176,3 +176,22 @@ def test_validation_endpoint():
     r = client.get("/api/nhanes/validation")
     assert r.status_code == 200
     assert r.json()["external"]["auc_external"] > 0.7
+
+
+def test_calibration_is_well_behaved(validation):
+    cal = validation["calibration"]
+    # On the held-out cycle the model should be close to calibrated: slope near 1, intercept near 0.
+    assert 0.8 <= cal["slope"] <= 1.2
+    assert abs(cal["intercept"]) < 0.3
+    # Mean predicted should track the real rate, and Brier should beat the base-rate baseline.
+    assert abs(cal["mean_predicted"] - cal["observed"]) < 0.03
+    assert cal["brier"] < cal["brier_baseline"]
+    assert cal["ece"] < 0.06
+    # Reliability bins rise monotonically-ish: the top bin's observed rate exceeds the bottom's.
+    assert len(cal["bins"]) >= 8
+    assert cal["bins"][-1]["obs"] > cal["bins"][0]["obs"]
+
+
+def test_calibration_in_endpoint():
+    cal = client.get("/api/nhanes/validation").json()["calibration"]
+    assert "bins" in cal and cal["bins"][0]["n"] > 0
