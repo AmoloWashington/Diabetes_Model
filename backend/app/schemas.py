@@ -111,6 +111,13 @@ class RiskRequest(_Strict):
     target_prevalence: float | None = Field(None, ge=0.001, le=0.999)
 
 
+class NhanesScreenRequest(_Strict):
+    age: float = Field(ge=20, le=100, description="Age in years (adults 20+)")
+    sex: Literal["male", "female"]
+    bmi: float = Field(ge=12, le=70, description="Body-mass index, kg/m²")
+    waist_cm: float = Field(ge=50, le=200, description="Waist circumference, cm")
+
+
 class DNARequest(_Strict):
     sequence: str = Field(min_length=1, max_length=5000)
 

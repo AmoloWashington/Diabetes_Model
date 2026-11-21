@@ -6,7 +6,7 @@ from .molecular import crispr, dna
 from .physiology import beta_cell, biophysics, cgm, indices, minimal_model, uva_padova
 from .schemas import (
     BetaCellRequest, CgmAnalyzeRequest, CrisprRequest, DiffusionRequest, GlucoseForecastRequest, IndicesRequest,
-    IVGTTFitRequest, IVGTTRequest, MealSimRequest, MembraneRequest, RiskRequest,
+    IVGTTFitRequest, IVGTTRequest, MealSimRequest, MembraneRequest, NhanesScreenRequest, RiskRequest,
 )
 
 REFERENCES = [
@@ -253,6 +253,11 @@ def glucose_forecast_benchmark() -> dict:
 def nhanes_study() -> dict:
     from .data import nhanes
     return nhanes.get_study()
+
+
+def nhanes_screen(req: "NhanesScreenRequest") -> dict:
+    from .data import nhanes
+    return nhanes.screen(req.age, req.sex, req.bmi, req.waist_cm)
 
 
 def glucose_forecast_series(req: "GlucoseForecastRequest") -> dict:

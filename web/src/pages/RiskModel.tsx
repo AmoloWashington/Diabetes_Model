@@ -1,11 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MethodsPanel } from "@/components/Methods";
-import { Stethoscope } from "lucide-react";
+import { Activity, Stethoscope } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { AskAI } from "@/components/AskAI";
 import { Bars, ChartCard, TimeSeries, useChartColors } from "@/components/charts";
-import { Button, Callout, Card, CardHeader, Field, Input, PageHeader, Select, Slider, Spinner, Stat, Table, cx, useToast } from "@/components/ui";
+import { Badge, Button, Callout, Card, CardHeader, Field, Input, PageHeader, Select, Slider, Spinner, Stat, Table, cx, useToast } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmt, pct } from "@/lib/format";
+
+interface ScreenResult {
+  probability_pct: number; population_rate_pct: number; percentile: number; fold_vs_population: number;
+  band: "lower" | "average" | "higher"; recommend_test: boolean; test_threshold_pct: number; note: string;
+}
 
 const SYMPTOMS: [string, string][] = [
   ["polyuria", "Polyuria"], ["polydipsia", "Polydipsia"], ["sudden_weight_loss", "Sudden weight loss"], ["weakness", "Weakness"],
@@ -48,7 +55,17 @@ export default function RiskModel() {
   return (
     <div>
       <PageHeader eyebrow="Data & models" title="Diabetes risk model"
-        description="Symptom-based classifier trained on the UCI early-stage dataset (Sylhet Diabetes Hospital, Bangladesh), evaluated with duplicate-aware grouped cross-validation. It is not a population screening test." />
+        description="Two complementary models. First, a non-invasive pre-screening estimate from body measurements alone, built on real US population data (NHANES). Below it, a symptom-based classifier trained on a clinical dataset. Neither is a diagnosis." />
+
+      <PreScreen />
+
+      <div className="flex items-center gap-2 mt-10 mb-4">
+        <Stethoscope className="size-4 text-brand-text" />
+        <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Symptom-based classifier</h2>
+      </div>
+      <Callout className="mb-4">
+        A different question from the pre-screening tool above. This model is trained on patients who <b>already presented with symptoms</b> at a clinic (the UCI early-stage dataset, Sylhet Diabetes Hospital, Bangladesh), so it estimates how a symptom picture relates to diabetes in that setting — <b>not</b> the chance that a random person in the population has diabetes. It is not a population screening test.
+      </Callout>
       <div className="grid xl:grid-cols-[340px_1fr] gap-5 items-start mb-8">
         <Card>
           <CardHeader title="Patient" />
@@ -139,6 +156,83 @@ export default function RiskModel() {
         </div>
       )}
       <div className="mt-6"><MethodsPanel id="risk" /></div>
+    </div>
+  );
+}
+
+/** Non-invasive pre-screening from NHANES: body measurements only, no blood test. */
+function PreScreen() {
+  const toast = useToast();
+  const c = useChartColors();
+  const [age, setAge] = useState(50);
+  const [sex, setSex] = useState<"male" | "female">("female");
+  const [weight, setWeight] = useState(82);
+  const [height, setHeight] = useState(170);
+  const [waist, setWaist] = useState(96);
+  const bmi = weight > 0 && height > 0 ? weight / (height / 100) ** 2 : 0;
+
+  const run = useMutation({
+    mutationFn: () => api.post<ScreenResult>("/api/nhanes/screen", { age, sex, bmi: +bmi.toFixed(1), waist_cm: waist }),
+    onError: (e: Error) => toast(e.message, "error"),
+  });
+  const r = run.data;
+  const summary = r
+    ? `NHANES non-invasive pre-screening: a ${age}-year-old ${sex}, BMI ${bmi.toFixed(1)}, waist ${waist} cm. Estimated probability of undiagnosed diabetes ${r.probability_pct}% vs a ${r.population_rate_pct}% US adult average (${r.fold_vs_population}× population, ${r.percentile}th percentile). Blood test ${r.recommend_test ? "recommended" : "not indicated"} at this model's 80%-sensitivity threshold.`
+    : "";
+
+  const tone = r ? (r.band === "higher" ? "danger" : r.band === "average" ? "warn" : "ok") : "ok";
+
+  return (
+    <div className="grid xl:grid-cols-[340px_1fr] gap-5 items-start">
+      <Card>
+        <CardHeader title="Your measurements" subtitle="No blood test needed" />
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Age (years)"><Input type="number" min={20} max={100} value={age} onChange={(e) => setAge(+e.target.value)} /></Field>
+            <Field label="Sex"><Select value={sex} onChange={(e) => setSex(e.target.value as "male" | "female")}><option value="female">Female</option><option value="male">Male</option></Select></Field>
+            <Field label="Weight (kg)"><Input type="number" min={30} max={250} value={weight} onChange={(e) => setWeight(+e.target.value)} /></Field>
+            <Field label="Height (cm)"><Input type="number" min={120} max={220} value={height} onChange={(e) => setHeight(+e.target.value)} /></Field>
+            <Field label="Waist (cm)"><Input type="number" min={50} max={200} value={waist} onChange={(e) => setWaist(+e.target.value)} /></Field>
+            <Field label="BMI (computed)"><Input type="number" value={+bmi.toFixed(1)} readOnly tabIndex={-1} className="bg-surface-2 text-muted" /></Field>
+          </div>
+          <Button variant="primary" icon={<Activity className="size-4" />} loading={run.isPending}
+            disabled={bmi < 12 || bmi > 70} onClick={() => run.mutate()}>Estimate from measurements</Button>
+          <p className="text-[11.5px] text-faint">Model fitted on 4,747 US adults in NHANES 2017–2018. <Link to="/data/nhanes" className="text-brand-text hover:underline">See how it was built and validated →</Link></p>
+        </div>
+      </Card>
+
+      <div className="flex flex-col gap-5 min-w-0">
+        {r ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Badge tone={r.recommend_test ? "accent" : "brand"}>{r.recommend_test ? "A blood test is worthwhile" : "Below the testing threshold"}</Badge>
+              <AskAI page="Non-invasive diabetes pre-screening (NHANES)" summary={summary}
+                question="Explain my non-invasive pre-screening estimate: what the probability and percentile mean, and whether I should get a blood test." />
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Stat label="Your estimate" value={fmt(r.probability_pct, 1)} unit="%" tone={tone} hint="chance of undiagnosed diabetes" />
+              <Stat label="US adult average" value={fmt(r.population_rate_pct, 1)} unit="%" hint="NHANES prevalence" />
+              <Stat label="vs population" value={`${fmt(r.fold_vs_population, 2)}×`} tone={tone} hint={`${fmt(r.percentile, 0)}th percentile`} />
+              <Stat label="Testing threshold" value={fmt(r.test_threshold_pct, 1)} unit="%" hint="catches ~80% of cases" />
+            </div>
+            <Callout tone={r.recommend_test ? "warn" : "ok"} title={r.recommend_test ? "A blood test is worth doing" : "Lower than the model's testing threshold"}>
+              {r.recommend_test
+                ? `Your estimate (${fmt(r.probability_pct, 1)}%) is at or above the ${fmt(r.test_threshold_pct, 1)}% cut this model uses to catch about 80% of undiagnosed diabetes. That means a simple HbA1c or fasting-glucose test is worthwhile — most of the people this flags will not have diabetes, but it is the group where testing pays off.`
+                : `Your estimate (${fmt(r.probability_pct, 1)}%) is below the ${fmt(r.test_threshold_pct, 1)}% cut this model uses to prioritise testing. That is reassuring but does not rule diabetes out — anyone with symptoms or risk factors should still be tested.`}
+            </Callout>
+            <ChartCard title="Where you sit" subtitle="Your estimated probability vs the US adult average (NHANES)">
+              <Bars horizontal data={[{ f: "You", v: +r.probability_pct.toFixed(1) }, { f: "US adult average", v: +r.population_rate_pct.toFixed(1) }]}
+                x="f" y="v" height={120} xLabel="probability of undiagnosed diabetes (%)"
+                colorFn={(row) => (row.f === "You" ? (r.band === "higher" ? c.v3 : r.band === "average" ? c.v2 : c.v1) : c.faint)} />
+            </ChartCard>
+            <p className="text-[12px] text-faint">{r.note}</p>
+          </>
+        ) : (
+          <Card>
+            <p className="text-[13px] text-muted">Enter your measurements to estimate the chance of <b>undiagnosed</b> diabetes from body measurements alone — the same features the NHANES model was validated on (ROC AUC 0.75, no blood test). This is a triage aid to decide whether a blood test is worthwhile, not a diagnosis.</p>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

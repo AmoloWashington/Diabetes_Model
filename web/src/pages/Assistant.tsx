@@ -93,6 +93,16 @@ export default function Assistant() {
   const end = useRef<HTMLDivElement>(null);
   const active = convs.find((c) => c.id === activeId) ?? null;
 
+  // Refs so send() always resolves the live conversation and streaming state, never a stale
+  // render closure. Without this, a hand-off that flips the active conversation would append
+  // to the previously-active one while the view shows a fresh (empty) conversation.
+  const convsRef = useRef(convs);
+  const activeIdRef = useRef(activeId);
+  const streamingRef = useRef(streaming);
+  useEffect(() => { convsRef.current = convs; }, [convs]);
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  useEffect(() => { streamingRef.current = streaming; }, [streaming]);
+
   useEffect(() => { saveConversations(convs); }, [convs]);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [active?.messages]);
 
@@ -100,19 +110,28 @@ export default function Assistant() {
     setConvs((cs) => cs.map((c) => (c.id === id ? { ...c, messages: fn(c.messages), updated: Date.now() } : c)));
   }, []);
 
-  const send = useCallback(async (text: string, context?: { page: string; summary: string }) => {
+  const send = useCallback(async (text: string, context?: { page: string; summary: string }, forceNew = false) => {
     const t = text.trim();
-    if (!t || streaming) return;
-    let conv = active;
-    if (!conv) {
-      conv = { id: newId(), title: t.slice(0, 70), updated: Date.now(), messages: [] };
-      setConvs((cs) => [conv!, ...cs]);
-      setActiveId(conv.id);
+    if (!t || streamingRef.current) return;
+    // Resolve the target conversation from refs, not from the render closure.
+    let id = forceNew ? null : activeIdRef.current;
+    let priorMessages: ChatMsg[] = [];
+    if (id) {
+      const existing = convsRef.current.find((c) => c.id === id);
+      if (existing) priorMessages = existing.messages;
+      else id = null;
     }
-    const id = conv.id;
-    const history = [...conv.messages.filter((m) => !m.error && m.content).map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content: t }];
+    if (!id) {
+      id = newId();
+      const conv: Conversation = { id, title: t.slice(0, 70), updated: Date.now(), messages: [] };
+      setConvs((cs) => [conv, ...cs]);
+      setActiveId(id);
+      activeIdRef.current = id;
+    }
+    const history = [...priorMessages.filter((m) => !m.error && m.content).map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content: t }];
     update(id, (ms) => [...ms.filter((m) => !(m.role === "assistant" && m.error && !m.content)), { role: "user", content: t, context }, { role: "assistant", content: "", tools: [] }]);
     setInput("");
+    streamingRef.current = true;
     setStreaming(true);
     const ctrl = new AbortController();
     abort.current = ctrl;
@@ -143,18 +162,17 @@ export default function Assistant() {
       const msg = (e as Error).name === "AbortError" ? "Stopped." : (e as Error).message || "Cannot reach the GlucoLab server.";
       patchLast((m) => ({ ...m, error: msg }));
     } finally {
+      streamingRef.current = false;
       setStreaming(false);
       abort.current = null;
     }
-  }, [active, streaming, update]);
+  }, [update]);
 
-  // Hand-off from "Ask AI about this" buttons on other pages
+  // Hand-off from "Ask AI about this" buttons on other pages: always open a fresh
+  // conversation seeded with that page's context, regardless of what was open before.
   useEffect(() => {
     const p = takePendingQuestion();
-    if (p) {
-      setActiveId(null);
-      setTimeout(() => send(p.question, p.context), 0);
-    }
+    if (p) send(p.question, p.context, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
