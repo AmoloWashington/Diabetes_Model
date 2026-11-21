@@ -397,6 +397,105 @@ def get_validation() -> dict:
     return _validation
 
 
+_fairness: dict | None = None
+_fairness_lock = threading.Lock()
+
+# NHANES RIDRETH3 race/ethnicity codes.
+_RACE = {1: "Mexican American", 2: "Other Hispanic", 3: "White", 4: "Black", 6: "Asian", 7: "Other/Multiracial"}
+# A subgroup needs at least this many people and cases for an AUC to be meaningful.
+_MIN_N, _MIN_POS = 40, 15
+
+
+def compute_fairness() -> dict:
+    """Does the pre-screening model work equally well for everyone?
+
+    Scores the model within subgroups (sex, age band, race/ethnicity) on leak-free pooled
+    out-of-fold predictions: per group it reports discrimination (AUC) and calibration (mean
+    predicted vs observed). This is deliberately self-critical — surfacing where a simple
+    body-measurement model is weaker or biased, not hiding it.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold
+    from sklearn.metrics import roc_auc_score
+
+    d = _load(DATA).copy()
+    d["sex_male"] = (d.sex == "male").astype(int)
+    d = d.dropna(subset=["age", "bmi", "waist_cm"])
+    d["y"] = ((d.hba1c_pct >= 6.5) | (d.fpg_mgdl >= 126)).astype(int)
+    d = d[d.hba1c_pct.notna() | d.fpg_mgdl.notna()].reset_index(drop=True)
+    feat = ["age", "sex_male", "bmi", "waist_cm"]
+    X, y = d[feat].to_numpy(float), d.y.to_numpy()
+
+    oof = np.zeros(len(y))
+    for tr, te in StratifiedKFold(5, shuffle=True, random_state=0).split(X, y):
+        oof[te] = LogisticRegression(max_iter=1000).fit(X[tr], y[tr]).predict_proba(X[te])[:, 1]
+
+    def row(label: str, mask: np.ndarray) -> dict:
+        yy, pp = y[mask], oof[mask]
+        n, pos = int(mask.sum()), int(yy.sum())
+        enough = n >= _MIN_N and _MIN_POS <= pos < n
+        pred, obs = (float(pp.mean()), float(yy.mean())) if n else (float("nan"), float("nan"))
+        return {
+            "group": label, "n": n, "positives": pos,
+            "prevalence_pct": round(100 * obs, 1) if n else None,
+            "auc": round(float(roc_auc_score(yy, pp)), 3) if enough else None,
+            "predicted_pct": round(100 * pred, 1) if n else None,
+            "observed_pct": round(100 * obs, 1) if n else None,
+            "calib_gap_pct": round(100 * (pred - obs), 1) if n else None,
+        }
+
+    by_sex = [row(s.capitalize(), (d.sex == s).to_numpy()) for s in ("female", "male")]
+    bands = [("20–39", 20, 40), ("40–59", 40, 60), ("60+", 60, 200)]
+    by_age = [row(lbl, ((d.age >= lo) & (d.age < hi)).to_numpy()) for lbl, lo, hi in bands]
+    by_race = [row(lbl, (d.race == code).to_numpy()) for code, lbl in _RACE.items()]
+    by_race = [r for r in by_race if r["n"] > 0]
+    by_race.sort(key=lambda r: -r["n"])
+
+    return {
+        "overall_auc": round(float(roc_auc_score(y, oof)), 3),
+        "n": int(len(y)),
+        "features": "age, sex, BMI, waist",
+        "by_sex": by_sex,
+        "by_age": by_age,
+        "by_race": by_race,
+        "findings": [
+            "Discrimination is similar for women and men and well calibrated.",
+            "Within a narrow age band the model separates people less well (most older adults are "
+            "already higher-risk), so a low estimate in an older person is weaker reassurance.",
+            "Calibration differs by race/ethnicity: the model under-estimates risk for Asian and "
+            "Hispanic adults and over-estimates it for White adults — consistent with the known fact "
+            "that type 2 diabetes develops at lower BMI in several of these groups. A simple "
+            "body-measurement model inherits that bias.",
+        ],
+        "note": ("Subgroup estimates use fewer people and carry more sampling noise; AUC is omitted "
+                 "where a group has too few cases. This is a transparency audit, not a cleared bill "
+                 "of health — it is one reason the tool is a triage aid, not a diagnosis."),
+    }
+
+
+def get_fairness() -> dict:
+    import joblib
+
+    global _fairness
+    if _fairness is None:
+        with _fairness_lock:
+            if _fairness is None:
+                cp = CACHE_DIR / f"nhanes_fairness_v{VERSION}_{_data_hash()}.joblib"
+                if cp.exists():
+                    try:
+                        _fairness = joblib.load(cp)
+                    except Exception:
+                        _fairness = None
+                if _fairness is None:
+                    _fairness = compute_fairness()
+                    try:
+                        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                        joblib.dump(_fairness, cp)
+                    except OSError:
+                        pass
+    return _fairness
+
+
 def _data_hash() -> str:
     return hashlib.sha256((DATA.read_bytes() if DATA.exists() else b"") + VERSION.encode()).hexdigest()[:16]
 
@@ -429,4 +528,4 @@ def get_study() -> dict:
 
 
 def is_ready() -> bool:
-    return _result is not None and _screen is not None and _validation is not None
+    return _result is not None and _screen is not None and _validation is not None and _fairness is not None

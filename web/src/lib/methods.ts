@@ -283,6 +283,10 @@ export const METHODS: Record<string, Methods> = {
         title: "Calibration (are the probabilities honest?)",
         text: "Discrimination (AUC) only measures ranking. Calibration measures whether a predicted probability means what it says. On the held-out 2015–2016 cycle we report the reliability curve (mean predicted vs observed frequency by decile), the Brier score against a base-rate baseline, the expected calibration error, and the logistic calibration slope and intercept (fit by regressing the outcome on the predicted log-odds; ideal values are 1.0 and 0.0). A curve on the diagonal means a displayed '10%' really corresponds to about a 10% chance.",
       },
+      {
+        title: "Subgroup fairness audit",
+        text: "The model is scored within subgroups (sex, age band, NHANES race/ethnicity) on the same leak-free pooled out-of-fold predictions, reporting AUC and the calibration gap (mean predicted minus observed rate). AUC is withheld for a group with fewer than 40 people or 15 cases. This is a self-critical transparency check: it surfaces that discrimination weakens within a narrow age band, and that a body-measurement-only model under-estimates risk for Asian and Hispanic adults and over-estimates it for White adults — consistent with ethnicity-specific differences in the BMI at which type 2 diabetes develops.",
+      },
     ],
     numerics: "pandas reads the CDC SAS XPORT files; scikit-learn LogisticRegression with 5-fold StratifiedKFold (seed 0). Results are research and education output, not official CDC statistics and not a clinical screening tool.",
   },

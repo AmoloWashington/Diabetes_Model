@@ -195,3 +195,44 @@ def test_calibration_is_well_behaved(validation):
 def test_calibration_in_endpoint():
     cal = client.get("/api/nhanes/validation").json()["calibration"]
     assert "bins" in cal and cal["bins"][0]["n"] > 0
+
+
+@pytest.fixture(scope="module")
+def fairness():
+    return nhanes.compute_fairness()
+
+
+def test_fairness_covers_the_three_dimensions(fairness):
+    assert {r["group"] for r in fairness["by_sex"]} == {"Female", "Male"}
+    assert [r["group"] for r in fairness["by_age"]] == ["20–39", "40–59", "60+"]
+    assert len(fairness["by_race"]) >= 4  # several race/ethnicity groups present
+    # Per-group counts sum to the whole sample within each complete partition.
+    assert sum(r["n"] for r in fairness["by_sex"]) == fairness["n"]
+    assert sum(r["n"] for r in fairness["by_age"]) == fairness["n"]
+
+
+def test_fairness_rows_are_consistent(fairness):
+    for dim in ("by_sex", "by_age", "by_race"):
+        for r in fairness[dim]:
+            assert r["positives"] <= r["n"]
+            if r["auc"] is not None:
+                assert 0.4 <= r["auc"] <= 1.0
+                assert r["n"] >= 40 and r["positives"] >= 15
+            # the calibration gap is predicted minus observed
+            if r["calib_gap_pct"] is not None:
+                assert abs(r["calib_gap_pct"] - (r["predicted_pct"] - r["observed_pct"])) < 0.2
+
+
+def test_fairness_surfaces_the_ethnicity_calibration_gap(fairness):
+    by = {r["group"]: r for r in fairness["by_race"]}
+    # The documented finding: risk is under-estimated for Asian adults (negative gap),
+    # over-estimated for White adults (positive gap). Guard the direction, not exact values.
+    if "Asian" in by and "White" in by:
+        assert by["Asian"]["calib_gap_pct"] < 0 < by["White"]["calib_gap_pct"]
+    assert len(fairness["findings"]) >= 3
+
+
+def test_fairness_endpoint():
+    r = client.get("/api/nhanes/fairness")
+    assert r.status_code == 200
+    assert r.json()["overall_auc"] > 0.7
