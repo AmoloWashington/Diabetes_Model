@@ -260,6 +260,11 @@ def nhanes_screen(req: "NhanesScreenRequest") -> dict:
     return nhanes.screen(req.age, req.sex, req.bmi, req.waist_cm)
 
 
+def nhanes_validation() -> dict:
+    from .data import nhanes
+    return nhanes.get_validation()
+
+
 def glucose_forecast_series(req: "GlucoseForecastRequest") -> dict:
     import numpy as np
     from .ml import glucose_forecast

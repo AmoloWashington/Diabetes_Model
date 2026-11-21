@@ -275,6 +275,10 @@ export const METHODS: Record<string, Methods> = {
         title: "Pre-screening model (leak-free)",
         text: "Logistic regression predicts laboratory-defined diabetes from non-laboratory features only (age, sex, BMI, waist circumference) — no blood test. Scored by 5-fold stratified cross-validation: each person's probability comes from a fold trained without them, and the AUC is computed on those pooled out-of-fold predictions, against an age-only baseline. It is a triage aid pointing to who should get a blood test, not a diagnosis.",
       },
+      {
+        title: "External (temporal) validation",
+        text: "The strongest test is data from a different time. The pre-screening model is fit on the 2017–2018 cycle and scored on the entirely separate 2015–2016 cycle (built identically from the CDC public files with the _I suffix). A held-out AUC on that unseen year that matches the within-sample estimate is evidence the model generalises rather than memorises one survey. The same two cycles give a short prevalence trend, including the share of diabetes still undiagnosed.",
+      },
     ],
     numerics: "pandas reads the CDC SAS XPORT files; scikit-learn LogisticRegression with 5-fold StratifiedKFold (seed 0). Results are research and education output, not official CDC statistics and not a clinical screening tool.",
   },

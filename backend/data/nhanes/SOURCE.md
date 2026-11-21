@@ -17,3 +17,12 @@ Adults aged 20+ only. Columns are merged from these public files
 Prevalence uses the fasting-subsample survey weight (fast_wt) as NCHS recommends;
 other statistics are unweighted and labelled as such. This is research and
 education software, not a clinical or official statistic.
+
+## 2015–2016 cycle
+
+`nhanes_2015_2016.csv` is the same subset for the NHANES 2015–2016 cycle, built
+identically from the public files with the `_I` suffix
+(https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/): DEMO_I, GHB_I,
+GLU_I, INS_I, BMX_I, DIQ_I. It is used for a cross-cycle prevalence trend and for
+external (temporal) validation of the pre-screening model: the model is fit on
+2017–2018 and scored on this separate 2015–2016 cohort it never saw.
