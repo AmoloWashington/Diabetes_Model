@@ -111,11 +111,15 @@ class RiskRequest(_Strict):
     target_prevalence: float | None = Field(None, ge=0.001, le=0.999)
 
 
+NhanesEthnicity = Literal["Mexican American", "Other Hispanic", "White", "Black", "Asian", "Other/Multiracial"]
+
+
 class NhanesScreenRequest(_Strict):
     age: float = Field(ge=20, le=100, description="Age in years (adults 20+)")
     sex: Literal["male", "female"]
     bmi: float = Field(ge=12, le=70, description="Body-mass index, kg/m²")
     waist_cm: float = Field(ge=50, le=200, description="Waist circumference, cm")
+    ethnicity: NhanesEthnicity | None = Field(None, description="Optional; enables an honest group calibration note")
 
 
 class DNARequest(_Strict):

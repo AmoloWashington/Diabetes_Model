@@ -234,7 +234,32 @@ def get_screen_model() -> dict:
     return _screen
 
 
-def screen(age: float, sex: str, bmi: float, waist_cm: float) -> dict:
+def _group_adjustment(ethnicity: str, prob: float) -> dict | None:
+    """An honest group-level correction from the fairness audit.
+
+    The model is calibrated overall but mis-states risk within some race/ethnicity groups (it
+    runs low for Asian and Hispanic adults, high for White adults). The audit's mean calibration
+    gap for the group (predicted minus observed) is a simple intercept correction: the fairer
+    estimate is the raw probability minus that gap. Applied only to groups with enough data.
+    """
+    fair = get_fairness()
+    row = next((r for r in fair["by_race"] if r["group"].lower() == ethnicity.lower()), None)
+    if row is None or row["n"] < 200 or row["calib_gap_pct"] is None:
+        return None
+    gap = float(row["calib_gap_pct"])  # percentage points, predicted - observed
+    adjusted = min(max(prob - gap / 100.0, 0.0), 1.0)
+    thr = get_screen_model()["threshold80"]
+    return {
+        "group": row["group"],
+        "gap_pct": round(gap, 1),
+        "adjusted_pct": round(adjusted * 100, 1),
+        "direction": "under-estimates" if gap < -0.5 else "over-estimates" if gap > 0.5 else "matches",
+        "crosses_threshold": bool(adjusted >= thr > prob),
+        "n": int(row["n"]),
+    }
+
+
+def screen(age: float, sex: str, bmi: float, waist_cm: float, ethnicity: str | None = None) -> dict:
     """Score one person with the non-invasive pre-screening model (no blood test)."""
     import numpy as np
 
@@ -247,7 +272,7 @@ def screen(age: float, sex: str, bmi: float, waist_cm: float) -> dict:
     recommend = prob >= b["threshold80"]
     rel = prob / b["prevalence"] if b["prevalence"] else 1.0
     band = "higher" if rel >= 1.5 else "lower" if rel <= 0.667 else "average"
-    return {
+    out = {
         "probability": round(prob, 4),
         "probability_pct": round(prob * 100, 1),
         "population_rate_pct": round(b["prevalence"] * 100, 1),
@@ -262,6 +287,11 @@ def screen(age: float, sex: str, bmi: float, waist_cm: float) -> dict:
                  "A high estimate means a blood test (HbA1c or fasting glucose) is worthwhile; "
                  "a low estimate does not rule diabetes out."),
     }
+    if ethnicity:
+        adj = _group_adjustment(ethnicity, prob)
+        if adj is not None:
+            out["group_adjustment"] = adj
+    return out
 
 
 _validation: dict | None = None

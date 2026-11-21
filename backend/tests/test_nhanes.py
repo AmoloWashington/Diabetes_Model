@@ -236,3 +236,28 @@ def test_fairness_endpoint():
     r = client.get("/api/nhanes/fairness")
     assert r.status_code == 200
     assert r.json()["overall_auc"] > 0.7
+
+
+def test_screen_without_ethnicity_has_no_adjustment():
+    assert "group_adjustment" not in nhanes.screen(55, "female", 29.0, 95.0)
+
+
+def test_screen_ethnicity_adjustment_direction():
+    # The model under-states risk for Asian adults, so the adjusted estimate is higher than raw.
+    r = nhanes.screen(55, "female", 29.0, 95.0, "Asian")
+    adj = r["group_adjustment"]
+    assert adj["group"] == "Asian"
+    assert adj["direction"] == "under-estimates"
+    assert adj["adjusted_pct"] > r["probability_pct"]
+    # And over-states for White adults -> adjusted lower than raw.
+    w = nhanes.screen(55, "female", 29.0, 95.0, "White")["group_adjustment"]
+    assert w["direction"] == "over-estimates"
+    assert w["adjusted_pct"] < nhanes.screen(55, "female", 29.0, 95.0)["probability_pct"]
+
+
+def test_screen_ethnicity_endpoint_and_validation():
+    r = client.post("/api/nhanes/screen", json={"age": 55, "sex": "female", "bmi": 29, "waist_cm": 95, "ethnicity": "Asian"})
+    assert r.status_code == 200
+    assert r.json()["group_adjustment"]["adjusted_pct"] > 0
+    # an unknown ethnicity label is rejected by the schema
+    assert client.post("/api/nhanes/screen", json={"age": 55, "sex": "female", "bmi": 29, "waist_cm": 95, "ethnicity": "Martian"}).status_code == 422
