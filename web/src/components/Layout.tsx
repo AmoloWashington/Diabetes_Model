@@ -1,6 +1,6 @@
 import {
   Activity, BookOpen, Languages, MessageSquareText, ChartSpline, Box, BrainCircuit, Cpu, Database, Dna, FlaskConical, HeartPulse, LayoutDashboard, Menu,
-  Microscope, Moon, Orbit, Pill, Scissors, ScanSearch, Sigma, Sun, TestTubes, Timer, TrendingUp, X, Zap,
+  Microscope, Moon, Orbit, Pill, Scissors, ScanSearch, Sigma, Sun, TestTubes, Timer, TrendingUp, Users, X, Zap,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -46,6 +46,7 @@ const NAV: { group: Key | null; items: Item[] }[] = [
     group: "nav.group.data",
     items: [
       { to: "/data", label: "nav.datasets", icon: <Database /> },
+      { to: "/data/nhanes", label: "nav.nhanes", icon: <Users /> },
       { to: "/risk", label: "nav.risk", icon: <Orbit /> },
     ],
   },

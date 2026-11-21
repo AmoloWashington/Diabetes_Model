@@ -249,4 +249,33 @@ export const METHODS: Record<string, Methods> = {
     ],
     numerics: "scikit-learn Ridge (alpha 10). The built-in cohort is synthetic (Dalla Man meal model), not real patients and not the OhioT1DM benchmark; upload a CGM file to evaluate on real data.",
   },
+  nhanes: {
+    title: "NHANES 2017–2018 real-data study",
+    source: "CDC/NCHS National Health and Nutrition Examination Survey 2017–2018 (public domain)",
+    sections: [
+      {
+        title: "Population and diagnostic criteria",
+        text: "US adults aged 20+ from the NHANES 2017–2018 cycle. Laboratory-defined diabetes is HbA1c ≥ 6.5% or fasting plasma glucose ≥ 126 mg/dl; prediabetes is HbA1c 5.7–6.4% or FPG 100–125 mg/dl (ADA criteria). 'Undiagnosed' means someone meets the laboratory criteria but reported never being told by a doctor that they have diabetes.",
+      },
+      {
+        title: "Survey weighting",
+        eqs: [
+          String.raw`\widehat{p} = \frac{\sum_{i\in\text{cases}} w_i}{\sum_{i} w_i}`,
+        ],
+        text: "Prevalence is estimated on the fasting subsample and weighted with the NHANES fasting-subsample weight (WTSAF2YR), as the NCHS analytic guidelines require, so the sample represents the US adult population. Other statistics (HOMA-IR, correlations, the screening model) are reported unweighted.",
+      },
+      {
+        title: "HOMA-IR and the HbA1c–glucose check",
+        eqs: [
+          String.raw`\mathrm{HOMA\text{-}IR} = \frac{I_{\mu U/ml}\cdot G_{mmol/l}}{22.5},\qquad \mathrm{eAG}_{mg/dl} = 28.7\cdot\mathrm{HbA_{1c}} - 46.7`,
+        ],
+        text: "HOMA-IR is computed on real fasting insulin and glucose and checked against BMI. The ADAG eAG formula estimates 24-hour average glucose, which should sit above fasting glucose — a consistency check on our clinical-indices engine against real measurements.",
+      },
+      {
+        title: "Pre-screening model (leak-free)",
+        text: "Logistic regression predicts laboratory-defined diabetes from non-laboratory features only (age, sex, BMI, waist circumference) — no blood test. Scored by 5-fold stratified cross-validation: each person's probability comes from a fold trained without them, and the AUC is computed on those pooled out-of-fold predictions, against an age-only baseline. It is a triage aid pointing to who should get a blood test, not a diagnosis.",
+      },
+    ],
+    numerics: "pandas reads the CDC SAS XPORT files; scikit-learn LogisticRegression with 5-fold StratifiedKFold (seed 0). Results are research and education output, not official CDC statistics and not a clinical screening tool.",
+  },
 };

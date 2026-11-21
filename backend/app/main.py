@@ -49,6 +49,11 @@ def _warm_risk_model(delay_s: float = 10.0) -> None:
         glucose_forecast.get_benchmark()
     except Exception:
         log.exception("Glucose forecast benchmark warm-up failed")
+    try:
+        from .data import nhanes
+        nhanes.get_study()
+    except Exception:
+        log.exception("NHANES study warm-up failed")
 
 
 def _risk_model_ready() -> bool:
@@ -251,6 +256,13 @@ async def forecast_benchmark() -> dict:
 @app.post("/api/forecast/evaluate")
 async def forecast_evaluate(req: GlucoseForecastRequest) -> dict:
     return await run_in_threadpool(services.glucose_forecast_series, req)
+
+
+# ---------------------------------------------------------------- real data (NHANES)
+
+@app.get("/api/nhanes/study")
+async def nhanes_study() -> dict:
+    return await run_in_threadpool(services.nhanes_study)
 
 
 # ---------------------------------------------------------------- feedback

@@ -1,0 +1,107 @@
+"""Tests for the NHANES 2017-2018 real-data study.
+
+These assert the shape and internal consistency of the computed study, and that the headline
+figures match what the public CDC data actually say (within rounding). They are not hard-coded
+expectations pulled from thin air: they are checks that the pipeline reproduces documented,
+well-established facts about US adult diabetes.
+"""
+
+import math
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.data import nhanes
+from app.main import app
+
+client = TestClient(app)
+
+
+@pytest.fixture(scope="module")
+def study():
+    return nhanes.compute()
+
+
+def test_data_file_present_and_adult_only():
+    import pandas as pd
+
+    assert nhanes.DATA.exists(), "NHANES CSV must ship with the repo for offline/CI use"
+    df = pd.read_csv(nhanes.DATA)
+    assert len(df) > 4000
+    assert df.age.min() >= 20  # adults only
+
+
+def test_prevalence_is_plausible_and_ordered(study):
+    p = study["prevalence"]
+    # Documented US adult figures: ~13-15% diabetes, with prediabetes much larger.
+    assert 10.0 <= p["diabetes_pct"] <= 18.0
+    assert p["prediabetes_pct"] > p["diabetes_pct"]
+    # More people meet the lab criteria than report a diagnosis -> some are undiagnosed.
+    assert p["diabetes_pct"] > p["diagnosed_self_pct"]
+    assert 0.0 < p["undiagnosed_pct"] < 60.0
+
+
+def test_prevalence_rises_with_age(study):
+    by_age = study["prevalence_by_age"]
+    pcts = [g["diabetes_pct"] for g in by_age]
+    assert pcts == sorted(pcts), "diabetes prevalence should be non-decreasing with age group"
+    assert pcts[-1] > pcts[0]
+
+
+def test_homa_ir_tracks_bmi(study):
+    h = study["homa"]
+    assert h["q1"] < h["median"] < h["q3"]
+    assert h["r_with_bmi"] > 0  # insulin resistance rises with adiposity
+    medians = [b["median_homa_ir"] for b in h["by_bmi"]]
+    assert medians == sorted(medians), "median HOMA-IR should rise across BMI categories"
+
+
+def test_hba1c_glucose_consistency(study):
+    a = study["hba1c"]
+    assert a["r_hba1c_fpg"] > 0.5  # strong positive correlation
+    # eAG is an average over the day; it should exceed mean fasting glucose.
+    assert a["mean_eag_formula"] > a["mean_fpg"]
+    # binned chart data is monotone-ish and non-empty
+    assert len(a["binned"]) >= 5
+    fpgs = [b["mean_fpg"] for b in a["binned"]]
+    assert fpgs[-1] > fpgs[0]
+
+
+def test_screening_beats_age_baseline(study):
+    s = study["screening"]
+    assert 0.5 < s["auc_age_only"] < s["auc"] <= 1.0
+    assert s["auc"] >= 0.70  # body-measurement model is a real signal
+    assert 0.0 <= s["at_80_sensitivity"]["specificity"] <= 1.0
+    # ROC curve is a valid monotone-ish path from (low) to (high)
+    roc = s["roc"]
+    assert roc[0]["fpr"] <= roc[-1]["fpr"]
+    assert roc[0]["tpr"] <= roc[-1]["tpr"]
+
+
+def test_all_reported_numbers_are_finite(study):
+    def walk(x):
+        if isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+        elif isinstance(x, float):
+            assert math.isfinite(x), f"non-finite value in study: {x}"
+
+    walk(study)
+
+
+def test_endpoint_returns_study():
+    r = client.get("/api/nhanes/study")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["n_adults"] > 4000
+    assert "diabetes_pct" in d["prevalence"]
+    assert d["screening"]["auc"] > d["screening"]["auc_age_only"]
+
+
+def test_reference_registered():
+    r = client.get("/api/references")
+    ids = {x["id"] for x in r.json()["references"]}
+    assert "nhanes2018" in ids
