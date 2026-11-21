@@ -9,10 +9,16 @@ import { Badge, Button, Callout, Card, CardHeader, Field, Input, PageHeader, Sel
 import { api } from "@/lib/api";
 import { fmt, pct } from "@/lib/format";
 
+interface GroupAdjustment {
+  group: string; gap_pct: number; adjusted_pct: number; direction: "under-estimates" | "over-estimates" | "matches";
+  crosses_threshold: boolean; n: number;
+}
 interface ScreenResult {
   probability_pct: number; population_rate_pct: number; percentile: number; fold_vs_population: number;
   band: "lower" | "average" | "higher"; recommend_test: boolean; test_threshold_pct: number; note: string;
+  group_adjustment?: GroupAdjustment;
 }
+const ETHNICITIES = ["", "Mexican American", "Other Hispanic", "White", "Black", "Asian", "Other/Multiracial"] as const;
 
 const SYMPTOMS: [string, string][] = [
   ["polyuria", "Polyuria"], ["polydipsia", "Polydipsia"], ["sudden_weight_loss", "Sudden weight loss"], ["weakness", "Weakness"],
@@ -169,10 +175,12 @@ function PreScreen() {
   const [weight, setWeight] = useState(82);
   const [height, setHeight] = useState(170);
   const [waist, setWaist] = useState(96);
+  const [ethnicity, setEthnicity] = useState<string>("");
   const bmi = weight > 0 && height > 0 ? weight / (height / 100) ** 2 : 0;
 
   const run = useMutation({
-    mutationFn: () => api.post<ScreenResult>("/api/nhanes/screen", { age, sex, bmi: +bmi.toFixed(1), waist_cm: waist }),
+    mutationFn: () => api.post<ScreenResult>("/api/nhanes/screen",
+      { age, sex, bmi: +bmi.toFixed(1), waist_cm: waist, ...(ethnicity ? { ethnicity } : {}) }),
     onError: (e: Error) => toast(e.message, "error"),
   });
   const r = run.data;
@@ -195,6 +203,11 @@ function PreScreen() {
             <Field label="Waist (cm)"><Input type="number" min={50} max={200} value={waist} onChange={(e) => setWaist(+e.target.value)} /></Field>
             <Field label="BMI (computed)"><Input type="number" value={+bmi.toFixed(1)} readOnly tabIndex={-1} className="bg-surface-2 text-muted" /></Field>
           </div>
+          <Field label="Race / ethnicity (optional)" hint="Enables an honest group-specific correction — the model is less accurate for some groups">
+            <Select value={ethnicity} onChange={(e) => setEthnicity(e.target.value)}>
+              {ETHNICITIES.map((e) => <option key={e} value={e}>{e || "Prefer not to say"}</option>)}
+            </Select>
+          </Field>
           <Button variant="primary" icon={<Activity className="size-4" />} loading={run.isPending}
             disabled={bmi < 12 || bmi > 70} onClick={() => run.mutate()}>Estimate from measurements</Button>
           <p className="text-[11.5px] text-faint">Model fitted on 4,747 US adults in NHANES 2017–2018. <Link to="/data/nhanes" className="text-brand-text hover:underline">See how it was built and validated →</Link></p>
@@ -220,6 +233,14 @@ function PreScreen() {
                 ? `Your estimate (${fmt(r.probability_pct, 1)}%) is at or above the ${fmt(r.test_threshold_pct, 1)}% cut this model uses to catch about 80% of undiagnosed diabetes. That means a simple HbA1c or fasting-glucose test is worthwhile — most of the people this flags will not have diabetes, but it is the group where testing pays off.`
                 : `Your estimate (${fmt(r.probability_pct, 1)}%) is below the ${fmt(r.test_threshold_pct, 1)}% cut this model uses to prioritise testing. That is reassuring but does not rule diabetes out — anyone with symptoms or risk factors should still be tested.`}
             </Callout>
+            {r.group_adjustment && r.group_adjustment.direction !== "matches" && Math.abs(r.group_adjustment.gap_pct) >= 2 && (
+              <Callout tone={r.group_adjustment.direction === "under-estimates" ? "warn" : undefined}
+                title={`Adjusted for ${r.group_adjustment.group} adults`}>
+                Our fairness audit found this body-measurement model <b>{r.group_adjustment.direction === "under-estimates" ? "under-states" : "over-states"} risk for {r.group_adjustment.group} adults</b> by about {fmt(Math.abs(r.group_adjustment.gap_pct), 1)} points on average (type 2 diabetes develops at a different BMI across groups). Correcting for that, a fairer estimate for you is roughly <b>{fmt(r.group_adjustment.adjusted_pct, 1)}%</b>.
+                {r.group_adjustment.crosses_threshold && <> That pushes you <b>above</b> the {fmt(r.test_threshold_pct, 1)}% testing threshold — so a blood test is worth doing even though the raw estimate sat below it.</>}
+                {" "}<Link to="/data/nhanes" className="text-brand-text hover:underline">See the audit →</Link>
+              </Callout>
+            )}
             <ChartCard title="Where you sit" subtitle="Your estimated probability vs the US adult average (NHANES)">
               <Bars horizontal data={[{ f: "You", v: +r.probability_pct.toFixed(1) }, { f: "US adult average", v: +r.population_rate_pct.toFixed(1) }]}
                 x="f" y="v" height={120} xLabel="probability of undiagnosed diabetes (%)"

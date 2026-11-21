@@ -257,7 +257,7 @@ def nhanes_study() -> dict:
 
 def nhanes_screen(req: "NhanesScreenRequest") -> dict:
     from .data import nhanes
-    return nhanes.screen(req.age, req.sex, req.bmi, req.waist_cm)
+    return nhanes.screen(req.age, req.sex, req.bmi, req.waist_cm, req.ethnicity)
 
 
 def nhanes_validation() -> dict:
