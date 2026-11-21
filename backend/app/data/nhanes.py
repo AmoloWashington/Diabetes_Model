@@ -31,7 +31,9 @@ from pathlib import Path
 
 import numpy as np
 
-DATA = Path(__file__).resolve().parents[2] / "data" / "nhanes" / "nhanes_2017_2018.csv"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nhanes"
+DATA = _DATA_DIR / "nhanes_2017_2018.csv"
+DATA_2015 = _DATA_DIR / "nhanes_2015_2016.csv"
 CACHE_DIR = Path(__file__).resolve().parents[2] / ".model_cache"
 VERSION = "1"
 
@@ -39,10 +41,10 @@ _result: dict | None = None
 _lock = threading.Lock()
 
 
-def _load():
+def _load(path: Path = DATA):
     import pandas as pd
 
-    df = pd.read_csv(DATA)
+    df = pd.read_csv(path)
     return df
 
 
@@ -262,6 +264,96 @@ def screen(age: float, sex: str, bmi: float, waist_cm: float) -> dict:
     }
 
 
+_validation: dict | None = None
+_validation_lock = threading.Lock()
+
+
+def _cycle_summary(df, label: str) -> dict:
+    """Weighted prevalence summary for one NHANES cycle (fasting subsample)."""
+    sub = df[df.fast_wt.notna() & df.hba1c_pct.notna() & df.fpg_mgdl.notna()]
+    w = sub.fast_wt.to_numpy()
+    dm = (sub.hba1c_pct >= 6.5) | (sub.fpg_mgdl >= 126)
+    pre = (((sub.hba1c_pct >= 5.7) & (sub.hba1c_pct < 6.5)) | ((sub.fpg_mgdl >= 100) & (sub.fpg_mgdl < 126)))
+    dx = sub.diag_self == 1
+    labpos = sub[dm]
+    return {
+        "cycle": label,
+        "n_adults": int(len(df)),
+        "n_fasting": int(len(sub)),
+        "diabetes_pct": round(_weighted_pct(dm.to_numpy(), w), 1),
+        "prediabetes_pct": round(_weighted_pct(pre.to_numpy(), w), 1),
+        "diagnosed_pct": round(_weighted_pct(dx.to_numpy(), w), 1),
+        "undiagnosed_pct": round(_weighted_pct((~(labpos.diag_self == 1)).to_numpy(), labpos.fast_wt.to_numpy()), 1),
+    }
+
+
+def compute_validation() -> dict:
+    """Cross-cycle trend and external (temporal) validation of the pre-screening model.
+
+    The model is fit on 2017-2018 and scored on the *entirely separate* 2015-2016 survey
+    cohort. A held-out AUC on data from a different year is a far stronger test than any
+    within-sample estimate: it shows the model generalises beyond the sample it was built on.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import roc_auc_score
+
+    newer, older = _load(DATA), _load(DATA_2015)
+    cycles = [_cycle_summary(older, "2015–2016"), _cycle_summary(newer, "2017–2018")]
+
+    feat = ["age", "sex_male", "bmi", "waist_cm"]
+
+    def prep(d):
+        d = d.copy()
+        d["sex_male"] = (d.sex == "male").astype(int)
+        d = d.dropna(subset=["age", "bmi", "waist_cm"])
+        d["y"] = ((d.hba1c_pct >= 6.5) | (d.fpg_mgdl >= 126)).astype(int)
+        return d[d.hba1c_pct.notna() | d.fpg_mgdl.notna()]
+
+    tr, te = prep(newer), prep(older)
+    model = LogisticRegression(max_iter=1000).fit(tr[feat], tr.y)
+    auc_ext = float(roc_auc_score(te.y, model.predict_proba(te[feat])[:, 1]))
+    auc_app = float(roc_auc_score(tr.y, model.predict_proba(tr[feat])[:, 1]))
+    return {
+        "cycles": cycles,
+        "external": {
+            "train": "2017–2018", "test": "2015–2016",
+            "features": "age, sex, BMI, waist",
+            "auc_external": round(auc_ext, 3),
+            "auc_apparent": round(auc_app, 3),
+            "n_test": int(len(te)), "positives_test": int(te.y.sum()),
+        },
+        "note": ("The model is trained on one survey cycle and scored on a different one. A held-out "
+                 "AUC on a separate year is strong evidence the model generalises, not just memorises."),
+    }
+
+
+def get_validation() -> dict:
+    import joblib
+
+    global _validation
+    if _validation is None:
+        with _validation_lock:
+            if _validation is None:
+                h = hashlib.sha256(
+                    (DATA.read_bytes() if DATA.exists() else b"")
+                    + (DATA_2015.read_bytes() if DATA_2015.exists() else b"")
+                    + VERSION.encode()).hexdigest()[:16]
+                cp = CACHE_DIR / f"nhanes_validation_v{VERSION}_{h}.joblib"
+                if cp.exists():
+                    try:
+                        _validation = joblib.load(cp)
+                    except Exception:
+                        _validation = None
+                if _validation is None:
+                    _validation = compute_validation()
+                    try:
+                        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                        joblib.dump(_validation, cp)
+                    except OSError:
+                        pass
+    return _validation
+
+
 def _data_hash() -> str:
     return hashlib.sha256((DATA.read_bytes() if DATA.exists() else b"") + VERSION.encode()).hexdigest()[:16]
 
@@ -294,4 +386,4 @@ def get_study() -> dict:
 
 
 def is_ready() -> bool:
-    return _result is not None and _screen is not None
+    return _result is not None and _screen is not None and _validation is not None

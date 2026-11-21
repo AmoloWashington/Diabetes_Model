@@ -138,3 +138,41 @@ def test_screen_endpoint_validates_and_scores():
     # out-of-range input is rejected by the schema
     assert client.post("/api/nhanes/screen", json={"age": 5, "sex": "male", "bmi": 30, "waist_cm": 105}).status_code == 422
     assert client.post("/api/nhanes/screen", json={"age": 60, "sex": "x", "bmi": 30, "waist_cm": 105}).status_code == 422
+
+
+@pytest.fixture(scope="module")
+def validation():
+    return nhanes.compute_validation()
+
+
+def test_second_cycle_present():
+    import pandas as pd
+
+    assert nhanes.DATA_2015.exists(), "the 2015-2016 CSV must ship for the trend / external validation"
+    df = pd.read_csv(nhanes.DATA_2015)
+    assert len(df) > 4000 and df.age.min() >= 20
+
+
+def test_validation_has_two_cycles_in_order(validation):
+    cy = validation["cycles"]
+    assert [c["cycle"] for c in cy] == ["2015–2016", "2017–2018"]
+    for c in cy:
+        assert 10.0 <= c["diabetes_pct"] <= 18.0
+        assert c["prediabetes_pct"] > c["diabetes_pct"]
+        assert 0 < c["undiagnosed_pct"] < 60
+
+
+def test_external_validation_generalises(validation):
+    e = validation["external"]
+    # Held-out AUC on a *separate* survey cycle should still be a real signal, close to the
+    # within-sample estimate (not collapsing), which is the whole point of the test.
+    assert 0.70 <= e["auc_external"] <= 0.85
+    assert abs(e["auc_external"] - e["auc_apparent"]) < 0.08
+    assert e["train"] != e["test"]
+    assert e["n_test"] > 4000
+
+
+def test_validation_endpoint():
+    r = client.get("/api/nhanes/validation")
+    assert r.status_code == 200
+    assert r.json()["external"]["auc_external"] > 0.7

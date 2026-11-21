@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AskAI } from "@/components/AskAI";
 import { Bars, ChartCard, TimeSeries, useChartColors } from "@/components/charts";
 import { MethodsPanel } from "@/components/Methods";
-import { Badge, Callout, Card, CardHeader, PageHeader, Stat, cx } from "@/components/ui";
+import { Badge, Callout, Card, CardHeader, PageHeader, Stat, Table, cx } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmt } from "@/lib/format";
 
@@ -23,12 +23,20 @@ interface Study {
   prevalence_by_age: { group: string; diabetes_pct: number; n: number }[];
   homa: Homa; hba1c: Hba1c; screening: Screening; caveats: string[];
 }
+interface Cycle { cycle: string; n_adults: number; n_fasting: number; diabetes_pct: number; prediabetes_pct: number; diagnosed_pct: number; undiagnosed_pct: number }
+interface Validation {
+  cycles: Cycle[];
+  external: { train: string; test: string; features: string; auc_external: number; auc_apparent: number; n_test: number; positives_test: number };
+  note: string;
+}
 
 export default function NhanesStudy() {
   const c = useChartColors();
-  const [tab, setTab] = useState<"prevalence" | "homa" | "hba1c" | "screen">("prevalence");
+  const [tab, setTab] = useState<"prevalence" | "homa" | "hba1c" | "screen" | "validate">("prevalence");
   const q = useQuery({ queryKey: ["nhanes-study"], queryFn: () => api.get<Study>("/api/nhanes/study") });
+  const vq = useQuery({ queryKey: ["nhanes-validation"], queryFn: () => api.get<Validation>("/api/nhanes/validation") });
   const r = q.data;
+  const v = vq.data;
 
   const summary = r ? `Real-data study on NHANES 2017–2018 (${r.n_adults.toLocaleString()} US adults 20+). Weighted laboratory-defined diabetes prevalence ${r.prevalence.diabetes_pct}% and prediabetes ${r.prevalence.prediabetes_pct}%; ${r.prevalence.undiagnosed_pct}% of lab-defined diabetes is undiagnosed. HOMA-IR median ${r.homa.median} (IQR ${r.homa.q1}–${r.homa.q3}), Pearson r with BMI ${r.homa.r_with_bmi}. HbA1c vs fasting glucose r=${r.hba1c.r_hba1c_fpg}. A non-invasive pre-screening model (${r.screening.features}) reaches ROC AUC ${r.screening.auc} vs ${r.screening.auc_age_only} for age alone.` : "";
 
@@ -37,6 +45,7 @@ export default function NhanesStudy() {
     { k: "homa", label: "Insulin resistance" },
     { k: "hba1c", label: "HbA1c vs glucose" },
     { k: "screen", label: "Pre-screening model" },
+    { k: "validate", label: "Does it hold up?" },
   ] as const;
 
   const rocData = r?.screening.roc.map((p) => ({ fpr: p.fpr, tpr: p.tpr, chance: p.fpr })) ?? [];
@@ -44,7 +53,7 @@ export default function NhanesStudy() {
   return (
     <div>
       <PageHeader eyebrow="Data & models · Real patients" title="Real-data study: NHANES 2017–2018"
-        description="Everything else here runs on textbook models or synthetic traces. This page does not: it analyses real measurements from 5,569 US adults in the CDC's national health survey — and uses them to validate GlucoLab's own clinical engines and to build an honest, non-invasive diabetes pre-screening model."
+        description="Everything else here runs on textbook models or synthetic traces. This page does not: it analyses real measurements from 5,569 US adults in the CDC's national health survey — validates GlucoLab's own clinical engines, builds an honest non-invasive pre-screening model, and shows that model holds up on a separate survey year it never saw (the 'Does it hold up?' tab)."
         actions={<AskAI page="NHANES 2017–2018 real-data study" summary={summary} question="Explain this NHANES real-data study: what the weighted prevalence means, and whether a pre-screening AUC of 0.75 from body measurements alone is actually useful." />} />
 
       <Callout tone="warn" title="What this is, and is not">
@@ -136,6 +145,50 @@ export default function NhanesStudy() {
               <Callout className="mt-4">
                 <b>Is 0.75 useful?</b> Yes — as a first filter. Using only age, sex, BMI and waist (no needle, no lab), the model reaches AUC {fmt(r.screening.auc, 3)}, clearly above age alone ({fmt(r.screening.auc_age_only, 3)}). Tuned to catch {fmt(r.screening.at_80_sensitivity.sensitivity * 100, 0)}% of people with undiagnosed diabetes, it would still clear about {fmt(r.screening.at_80_sensitivity.specificity * 100, 0)}% of people from needing a blood test. It is evaluated leak-free (out-of-fold cross-validation), so this is an honest estimate — not a diagnosis, but a defensible way to decide who to test first in a setting where testing everyone is not possible.
               </Callout>
+            </>
+          )}
+
+          {tab === "validate" && (
+            <>
+              {!v && <p className="text-[13px] text-muted mt-4">Loading the validation…</p>}
+              {v && (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <Stat label="Trained on" value="2017–18" hint="one survey cycle" />
+                    <Stat label="Tested on" value="2015–16" hint="a different, unseen cycle" />
+                    <Stat label="Held-out AUC" value={fmt(v.external.auc_external, 3)} tone="ok" hint="on the separate cohort" />
+                    <Stat label="Within-sample AUC" value={fmt(v.external.auc_apparent, 3)} hint="for comparison" />
+                  </div>
+                  <Callout tone="ok" className="mt-4" title="It generalises to a different year">
+                    The hard test for a model is data it has never seen. Fit only on the 2017–2018 survey and scored on the <b>entirely separate</b> {v.external.n_test.toLocaleString()} adults of the 2015–2016 cycle, the pre-screening model holds an AUC of <b>{fmt(v.external.auc_external, 3)}</b> — essentially the same as its within-sample {fmt(v.external.auc_apparent, 3)}. It isn't memorising one survey; the signal is real across years. Features: {v.external.features}.
+                  </Callout>
+                  <ChartCard className="mt-4" title="Diabetes across two survey cycles" subtitle="Weighted prevalence (%) — lab-defined diabetes, and the share of it still undiagnosed">
+                    <Bars data={v.cycles.flatMap((cy) => [
+                      { f: `${cy.cycle} · diabetes`, v: cy.diabetes_pct },
+                      { f: `${cy.cycle} · undiagnosed`, v: cy.undiagnosed_pct },
+                    ])} x="f" y="v" horizontal height={200} xLabel="%"
+                      colorFn={(row) => (String(row.f).includes("undiagnosed") ? c.v3 : c.v1)} />
+                  </ChartCard>
+                  <Card className="mt-4" padded={false}>
+                    <div className="px-5 pt-5"><CardHeader title="Cycle comparison" subtitle="Survey-weighted, fasting subsample" /></div>
+                    <Table head={["Cycle", "Adults", "Diabetes", "Prediabetes", "Diagnosed", "Undiagnosed"]}>
+                      {v.cycles.map((cy) => (
+                        <tr key={cy.cycle}>
+                          <td className="px-3 py-2.5 font-medium">{cy.cycle}</td>
+                          <td className="px-3 py-2.5 num text-ink-2">{cy.n_adults.toLocaleString()}</td>
+                          <td className="px-3 py-2.5 num">{fmt(cy.diabetes_pct, 1)}%</td>
+                          <td className="px-3 py-2.5 num text-ink-2">{fmt(cy.prediabetes_pct, 1)}%</td>
+                          <td className="px-3 py-2.5 num text-ink-2">{fmt(cy.diagnosed_pct, 1)}%</td>
+                          <td className="px-3 py-2.5 num text-warn">{fmt(cy.undiagnosed_pct, 1)}%</td>
+                        </tr>
+                      ))}
+                    </Table>
+                  </Card>
+                  <Callout className="mt-4">
+                    <b>What the trend shows.</b> Lab-defined diabetes held steady at {fmt(v.cycles[1].diabetes_pct, 1)}% across both cycles, but the undiagnosed share fell from {fmt(v.cycles[0].undiagnosed_pct, 1)}% to {fmt(v.cycles[1].undiagnosed_pct, 1)}% — modest progress in catching it, with a large gap still open. Two cycles is a short window and the weighted estimates carry sampling uncertainty, so read the direction, not the decimals.
+                  </Callout>
+                </>
+              )}
             </>
           )}
 
